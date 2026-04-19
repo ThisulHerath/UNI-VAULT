@@ -8,6 +8,8 @@ import { Colors, FontSizes, Spacing, Radius } from '../constants/theme';
 import { SkeletonBlock } from '../components/ui/skeleton-block';
 
 type CollectionPriority = 'low' | 'normal' | 'high';
+type SortOption = 'name' | 'date' | 'priority';
+type FilterOption = 'all' | 'low' | 'normal' | 'high';
 
 const PRIORITY_OPTIONS: CollectionPriority[] = ['low', 'normal', 'high'];
 
