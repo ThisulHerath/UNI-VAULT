@@ -56,6 +56,8 @@ export default function CollectionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>('date');
+  const [filterPriority, setFilterPriority] = useState<FilterOption>('all');
 
   // Create Modal State
   const [createModalVisible, setCreateModalVisible] = useState(false);
