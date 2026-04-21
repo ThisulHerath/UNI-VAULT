@@ -18,6 +18,15 @@ const formatPriorityLabel = (priority?: string | null) => {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 };
 
+const getPriorityColor = (priority?: string | null) => {
+  switch (priority) {
+    case 'high': return '#EF4444'; // Red
+    case 'low': return '#10B981'; // Green
+    case 'normal':
+    default: return Colors.primary;
+  }
+};
+
 const formatTargetDate = (value?: string | null) => {
   if (!value) return null;
   const date = new Date(value);
