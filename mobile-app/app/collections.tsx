@@ -30,6 +30,9 @@ const getPriorityColor = (priority?: string | null) => {
   }
 };
 
+/**
+ * Formats the target date relative to the current date (e.g., 'Due today').
+ */
 const formatTargetDate = (value?: string | null) => {
   if (!value) return null;
   const date = new Date(value);
