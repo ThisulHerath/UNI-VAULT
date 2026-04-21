@@ -18,6 +18,9 @@ const formatPriorityLabel = (priority?: string | null) => {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 };
 
+/**
+ * Maps priority levels to their corresponding UI colors.
+ */
 const getPriorityColor = (priority?: string | null) => {
   switch (priority) {
     case 'high': return '#EF4444'; // Red
