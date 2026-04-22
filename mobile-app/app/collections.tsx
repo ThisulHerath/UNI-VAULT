@@ -96,6 +96,9 @@ export default function CollectionsScreen() {
     setNewTags('');
   };
 
+  /**
+   * Fetches the user's personal collections from the backend.
+   */
   const load = async () => {
     try {
       const res = await collectionService.getMyCollections();
