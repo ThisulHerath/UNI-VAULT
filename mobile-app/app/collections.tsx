@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: FontSizes.xs, color: Colors.primary },
   empty: { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
   
-  exploreBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#DBEAFE', borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: '#BFDBFE' },
+  exploreBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#DBEAFE', borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: '#BFDBFE', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   exploreBannerContent: { flexDirection: 'row', alignItems: 'center' },
   exploreTitle: { fontSize: FontSizes.md, fontWeight: '800', color: Colors.primary },
   exploreDesc: { fontSize: FontSizes.xs, color: Colors.primary, marginTop: 2, opacity: 0.8 },
