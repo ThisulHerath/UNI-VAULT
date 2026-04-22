@@ -108,6 +108,9 @@ export default function CollectionsScreen() {
     if (!query) return collections;
 
     return collections.filter((collection) => {
+      if (filterPriority !== 'all' && collection?.priority !== filterPriority) {
+        return false;
+      }
       const fields = [
         collection?.name,
         collection?.description,
