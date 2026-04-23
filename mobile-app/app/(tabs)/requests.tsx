@@ -1,0 +1,90 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import { requestService } from '../../services/dataServices';
+import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+
+const STATUS_COLOR: any = { open: Colors.success, fulfilled: Colors.primary, closed: Colors.textMuted };
+
+export default function RequestsScreen() {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter]     = useState<'open' | 'fulfilled' | 'closed'>('open');
+
+  const load = async (status = filter) => {
+    try {
+      const res = await requestService.getRequests({ status });
+      setRequests(res.data || []);
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Error', text2: e.message });
+    } finally { setLoading(false); setRefreshing(false); }
+  };
+
+  useEffect(() => { setLoading(true); load(filter); }, [filter]);
+
+  const renderItem = ({ item }: any) => (
+    <TouchableOpacity style={styles.card} onPress={() => router.push(`/request/${item._id}`)}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.meta}>{item.requestedBy?.name} · {item.subject?.name || 'Any Subject'}</Text>
+      </View>
+      <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.status] + '25' }]}>
+        <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>{item.status}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.pageTitle}>🙋 Requests</Text>
+        <TouchableOpacity style={styles.fab} onPress={() => router.push('/request/create')}>
+          <Ionicons name="add" size={22} color={Colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter tabs */}
+      <View style={styles.filterRow}>
+        {(['open', 'fulfilled', 'closed'] as const).map(s => (
+          <TouchableOpacity key={s} style={[styles.filterBtn, filter === s && styles.filterActive]} onPress={() => setFilter(s)}>
+            <Text style={[styles.filterText, filter === s && styles.filterTextActive]}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading
+        ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
+        : <FlatList
+            data={requests}
+            keyExtractor={i => i._id}
+            renderItem={renderItem}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
+            contentContainerStyle={{ padding: Spacing.md, paddingTop: 4 }}
+            ListEmptyComponent={<Text style={styles.empty}>No {filter} requests.</Text>}
+          />
+      }
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container:       { flex: 1, backgroundColor: Colors.background },
+  header:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm },
+  pageTitle:       { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
+  fab:             { width: 38, height: 38, borderRadius: Radius.full, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  filterRow:       { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.sm, gap: 8 },
+  filterBtn:       { flex: 1, paddingVertical: Spacing.xs, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  filterActive:    { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterText:      { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600' },
+  filterTextActive:{ color: Colors.text },
+  card:            { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
+  title:           { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text },
+  meta:            { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
+  statusBadge:     { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
+  statusText:      { fontSize: FontSizes.xs, fontWeight: '700', textTransform: 'capitalize' },
+  empty:           { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
+});
+
