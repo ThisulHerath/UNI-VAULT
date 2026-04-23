@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, ActivityIndicator, Platform,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,33 @@ import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import { noteService, subjectService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
-import { useEffect } from 'react';
+
+const MAX_NOTE_FILE_SIZE_BYTES = 15 * 1024 * 1024;
+const MAX_NOTE_FILE_SIZE_MB = 15;
+const ALLOWED_NOTE_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
+const formatFileSize = (bytes?: number) => {
+  if (!bytes && bytes !== 0) return 'Unknown size';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const isAllowedNoteFile = (mimeType?: string, fileName?: string) => {
+  if (mimeType && ALLOWED_NOTE_MIME_TYPES.has(mimeType)) {
+    return true;
+  }
+
+  const extension = fileName?.split('.').pop()?.toLowerCase();
+  return extension ? ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'docx'].includes(extension) : false;
+};
 
 export default function UploadNoteScreen() {
   const [title, setTitle]       = useState('');
@@ -30,13 +56,53 @@ export default function UploadNoteScreen() {
              'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
       copyToCacheDirectory: true,
     });
-    if (!result.canceled && result.assets?.[0]) setFile(result.assets[0]);
+
+    if (result.canceled || !result.assets?.[0]) {
+      return;
+    }
+
+    const selectedFile = result.assets[0];
+    if (!isAllowedNoteFile(selectedFile.mimeType, selectedFile.name)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Unsupported file type',
+        text2: 'Only PDF, DOCX, JPG, PNG, GIF, and WEBP files are allowed.',
+      });
+      return;
+    }
+
+    if (selectedFile.size && selectedFile.size > MAX_NOTE_FILE_SIZE_BYTES) {
+      Toast.show({
+        type: 'error',
+        text1: 'File too large',
+        text2: `Maximum note size is ${MAX_NOTE_FILE_SIZE_MB} MB.`,
+      });
+      return;
+    }
+
+    setFile(selectedFile);
   };
 
   const handleUpload = async () => {
     if (!title.trim()) { Toast.show({ type: 'error', text1: 'Title is required' }); return; }
     if (!file)         { Toast.show({ type: 'error', text1: 'Please select a file' }); return; }
     if (!subject)      { Toast.show({ type: 'error', text1: 'Please select a subject' }); return; }
+    if (!isAllowedNoteFile(file.mimeType, file.name)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Unsupported file type',
+        text2: 'Only PDF, DOCX, JPG, PNG, GIF, and WEBP files are allowed.',
+      });
+      return;
+    }
+    if (file.size && file.size > MAX_NOTE_FILE_SIZE_BYTES) {
+      Toast.show({
+        type: 'error',
+        text1: 'File too large',
+        text2: `Maximum note size is ${MAX_NOTE_FILE_SIZE_MB} MB.`,
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -94,11 +160,15 @@ export default function UploadNoteScreen() {
             {file ? file.name : 'Tap to select PDF, Image, or DOCX'}
           </Text>
         </TouchableOpacity>
+        <Text style={styles.fileHint}>
+          PDF, DOCX, and images only. Max {MAX_NOTE_FILE_SIZE_MB} MB.
+          {file ? ` Selected: ${formatFileSize(file.size)}.` : ''}
+        </Text>
 
         <TouchableOpacity style={[styles.uploadBtn, loading && { opacity: 0.65 }]} onPress={handleUpload} disabled={loading}>
           {loading ? <ActivityIndicator color={Colors.text} /> : <>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.text} />
-            <Text style={styles.uploadBtnText}>Upload to Cloudinary</Text>
+            <Text style={styles.uploadBtnText}>Upload to MongoDB</Text>
           </>}
         </TouchableOpacity>
       </View>
@@ -119,6 +189,7 @@ const styles = StyleSheet.create({
   noSubject:       { color: Colors.textMuted, fontSize: FontSizes.sm, padding: 8 },
   filePicker:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', gap: 10, marginBottom: Spacing.lg },
   filePickerText:  { color: Colors.textMuted, flex: 1, fontSize: FontSizes.sm },
+  fileHint:        { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: -Spacing.sm, marginBottom: Spacing.md },
   uploadBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: Radius.md, padding: Spacing.md, gap: 8 },
   uploadBtnText:   { color: Colors.text, fontWeight: '700', fontSize: FontSizes.md },
 });

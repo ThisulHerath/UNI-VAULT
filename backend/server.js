@@ -22,9 +22,7 @@ const reviewRoutes      = require('./routes/reviewRoutes');
 const noteRequestRoutes = require('./routes/noteRequestRoutes');
 const collectionRoutes  = require('./routes/collectionRoutes');
 const studyGroupRoutes  = require('./routes/studyGroupRoutes');
-
-// Connect to MongoDB
-connectDB();
+const migrateLegacyNoteFiles = require('./utils/migrateLegacyNoteFiles');
 
 const app = express();
 
@@ -73,7 +71,19 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 UniVault server running on port ${PORT} [${process.env.NODE_ENV}]`);
-});
+const startServer = async () => {
+  await connectDB();
+
+  try {
+    await migrateLegacyNoteFiles();
+  } catch (error) {
+    console.error(`⚠️ Legacy note file migration skipped: ${error.message}`);
+  }
+
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 UniVault server running on port ${PORT} [${process.env.NODE_ENV}]`);
+  });
+};
+
+startServer();

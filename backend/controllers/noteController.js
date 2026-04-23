@@ -1,10 +1,29 @@
-const Note = require('../models/Note');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+const Note = require('../models/Note');
+const {
+  buildRelativeNoteFileUrl,
+  deleteNoteFileFromGridFs,
+  getLegacyNoteFilePath,
+  getNoteBucket,
+  resolveNoteFileType,
+  setNoteFileUrl,
+  setNoteFileUrls,
+  uploadNoteFileToGridFs,
+} = require('../utils/noteFiles');
+
+const sendLegacyNoteFile = (res, legacyPath, note) => {
+  const downloadName = note?.originalFileName || path.basename(legacyPath);
+  res.setHeader('Content-Disposition', `inline; filename="${downloadName.replace(/"/g, '\\"')}"`);
+  return res.sendFile(legacyPath);
+};
 
 // ─── @route  POST /api/notes ──────────────────────────────────────────────────
 // ─── @access Private
 exports.createNote = async (req, res, next) => {
+  let uploadedFileId = null;
+
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please upload a file.' });
@@ -12,33 +31,81 @@ exports.createNote = async (req, res, next) => {
 
     const { title, description, subject, tags, isPublic } = req.body;
 
-    // Determine file type from mimetype
-    let fileType = 'other';
-    if (req.file.mimetype === 'application/pdf') fileType = 'pdf';
-    else if (req.file.mimetype.startsWith('image/')) fileType = 'image';
-    else if (req.file.mimetype.includes('word')) fileType = 'docx';
-
-    // Build file URL: http://localhost:5000/uploads/notes/filename
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/notes/${req.file.filename}`;
-
-    const note = await Note.create({
+    const note = new Note({
       title,
       description,
       subject,
       uploadedBy: req.user._id,
-      fileUrl,                          // Local file URL
-      cloudinaryPublicId: req.file.filename, // Store filename for deletion
-      fileType,
-      fileSize: req.file.size || null,
-      originalFileName: req.file.originalname,
       tags: tags ? tags.split(',').map((t) => t.trim().toLowerCase()) : [],
       isPublic: isPublic !== undefined ? isPublic : true,
     });
+    note.fileUrl = buildRelativeNoteFileUrl(note._id.toString());
+
+    const uploadResult = await uploadNoteFileToGridFs(req.file, note._id);
+    uploadedFileId = uploadResult.fileId;
+    note.fileId = uploadResult.fileId;
+    note.fileUrl = buildRelativeNoteFileUrl(note._id.toString());
+    note.fileType = resolveNoteFileType(req.file.mimetype);
+    note.fileMimeType = req.file.mimetype;
+    note.fileSize = uploadResult.fileSize || req.file.size || null;
+    note.originalFileName = req.file.originalname;
+    note.cloudinaryPublicId = null;
+
+    await note.save();
 
     await note.populate('uploadedBy', 'name avatar');
     await note.populate('subject', 'name code');
 
-    res.status(201).json({ success: true, data: note });
+    res.status(201).json({ success: true, data: setNoteFileUrl(note, req) });
+  } catch (error) {
+    if (uploadedFileId) {
+      try {
+        await deleteNoteFileFromGridFs(uploadedFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures; the main error should be surfaced.
+      }
+    }
+    next(error);
+  }
+};
+
+// ─── @route  GET /api/notes/:id/file ─────────────────────────────────────────
+// ─── @access Public
+exports.getNoteFile = async (req, res, next) => {
+  try {
+    const note = await Note.findById(req.params.id).select('fileId fileMimeType fileUrl originalFileName cloudinaryPublicId');
+
+    if (!note) {
+      return res.status(404).json({ success: false, message: 'Note not found.' });
+    }
+
+    if (note.fileId) {
+      const bucket = getNoteBucket();
+      const fileId = note.fileId instanceof mongoose.Types.ObjectId
+        ? note.fileId
+        : new mongoose.Types.ObjectId(note.fileId);
+
+      const files = await bucket.find({ _id: fileId }).toArray();
+      if (!files.length) {
+        return res.status(404).json({ success: false, message: 'File not found.' });
+      }
+
+      const file = files[0];
+      res.setHeader('Content-Type', file.contentType || note.fileMimeType || 'application/octet-stream');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${(note.originalFileName || file.filename || 'note-file').replace(/"/g, '\\"')}"`
+      );
+
+      return bucket.openDownloadStream(fileId).on('error', next).pipe(res);
+    }
+
+    const legacyPath = getLegacyNoteFilePath(note);
+    if (legacyPath && fs.existsSync(legacyPath)) {
+      return sendLegacyNoteFile(res, legacyPath, note);
+    }
+
+    return res.status(404).json({ success: false, message: 'File not found.' });
   } catch (error) {
     next(error);
   }
@@ -77,7 +144,7 @@ exports.getNotes = async (req, res, next) => {
       total,
       page,
       pages: Math.ceil(total / limit),
-      data: notes,
+      data: setNoteFileUrls(notes, req),
     });
   } catch (error) {
     next(error);
@@ -100,7 +167,7 @@ exports.getNoteById = async (req, res, next) => {
     note.viewCount += 1;
     await note.save({ validateBeforeSave: false });
 
-    res.status(200).json({ success: true, data: note });
+    res.status(200).json({ success: true, data: setNoteFileUrl(note, req) });
   } catch (error) {
     next(error);
   }
@@ -109,6 +176,8 @@ exports.getNoteById = async (req, res, next) => {
 // ─── @route  PUT /api/notes/:id ───────────────────────────────────────────────
 // ─── @access Private (owner only)
 exports.updateNote = async (req, res, next) => {
+  let newlyUploadedFileId = null;
+
   try {
     let note = await Note.findById(req.params.id);
     if (!note) {
@@ -126,25 +195,20 @@ exports.updateNote = async (req, res, next) => {
       isPublic,
       tags: tags ? tags.split(',').map((t) => t.trim().toLowerCase()) : note.tags,
     };
+    const previousFileId = note.fileId;
+    const previousLegacyPath = getLegacyNoteFilePath(note);
 
     // Replace file if a new one is uploaded
     if (req.file) {
-      // Delete old file from disk
-      if (note.cloudinaryPublicId) {
-        const oldFilePath = path.join('uploads/notes', note.cloudinaryPublicId);
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
-      }
-
-      const fileUrl = `${req.protocol}://${req.get('host')}/uploads/notes/${req.file.filename}`;
-      updateData.fileUrl = fileUrl;
-      updateData.cloudinaryPublicId = req.file.filename;
-
-      // Determine new file type
-      if (req.file.mimetype === 'application/pdf') updateData.fileType = 'pdf';
-      else if (req.file.mimetype.startsWith('image/')) updateData.fileType = 'image';
-      else if (req.file.mimetype.includes('word')) updateData.fileType = 'docx';
+      const uploadResult = await uploadNoteFileToGridFs(req.file, note._id);
+      newlyUploadedFileId = uploadResult.fileId;
+      updateData.fileId = uploadResult.fileId;
+      updateData.fileUrl = buildRelativeNoteFileUrl(note._id.toString());
+      updateData.fileType = resolveNoteFileType(req.file.mimetype);
+      updateData.fileMimeType = req.file.mimetype;
+      updateData.fileSize = uploadResult.fileSize || req.file.size || null;
+      updateData.originalFileName = req.file.originalname;
+      updateData.cloudinaryPublicId = null;
     }
 
     note = await Note.findByIdAndUpdate(req.params.id, updateData, {
@@ -154,8 +218,23 @@ exports.updateNote = async (req, res, next) => {
       .populate('uploadedBy', 'name avatar')
       .populate('subject', 'name code');
 
-    res.status(200).json({ success: true, data: note });
+    if (req.file) {
+      if (previousFileId) {
+        await deleteNoteFileFromGridFs(previousFileId);
+      } else if (previousLegacyPath && fs.existsSync(previousLegacyPath)) {
+        fs.unlinkSync(previousLegacyPath);
+      }
+    }
+
+    res.status(200).json({ success: true, data: setNoteFileUrl(note, req) });
   } catch (error) {
+    if (newlyUploadedFileId) {
+      try {
+        await deleteNoteFileFromGridFs(newlyUploadedFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures; the main error should be surfaced.
+      }
+    }
     next(error);
   }
 };
@@ -173,10 +252,11 @@ exports.deleteNote = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this note.' });
     }
 
-    // Delete file from disk
-    if (note.cloudinaryPublicId) {
-      const filePath = path.join('uploads/notes', note.cloudinaryPublicId);
-      if (fs.existsSync(filePath)) {
+    if (note.fileId) {
+      await deleteNoteFileFromGridFs(note.fileId);
+    } else {
+      const filePath = getLegacyNoteFilePath(note);
+      if (filePath && fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
     }
@@ -212,7 +292,7 @@ exports.getMyNotes = async (req, res, next) => {
       total,
       page,
       pages: Math.ceil(total / limit),
-      data: notes,
+      data: setNoteFileUrls(notes, req),
     });
   } catch (error) {
     next(error);

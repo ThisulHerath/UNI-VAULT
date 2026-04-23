@@ -19,21 +19,31 @@ const noteSchema = new mongoose.Schema(
       type: String,
       required: [true, 'File URL is required'],
     },
-    // Cloudinary public_id for deletion (e.g. 'univault/notes/abc123')
-    cloudinaryPublicId: {
-      type: String,
+    // MongoDB GridFS file identifier for the uploaded note file.
+    fileId: {
+      type: mongoose.Schema.Types.ObjectId,
       default: null,
+      index: true,
     },
     fileType: {
       type: String,
       enum: ['pdf', 'image', 'docx', 'other'],
       default: 'other',
     },
+    fileMimeType: {
+      type: String,
+      default: null,
+    },
     fileSize: {
       type: Number, // size in bytes
       default: null,
     },
     originalFileName: {
+      type: String,
+      default: null,
+    },
+    // Legacy filename retained only for fallback migration from disk storage.
+    cloudinaryPublicId: {
       type: String,
       default: null,
     },

@@ -1,4 +1,5 @@
 const NoteRequest = require('../models/NoteRequest');
+const { setNoteFileUrl } = require('../utils/noteFiles');
 
 // ─── @route  POST /api/requests ───────────────────────────────────────────────
 // ─── @access Private
@@ -46,13 +47,19 @@ exports.getRequests = async (req, res, next) => {
       NoteRequest.countDocuments(filter),
     ]);
 
+    const plainRequests = requests.map((request) => {
+      const plainRequest = request.toObject();
+      plainRequest.fulfilledByNote = setNoteFileUrl(plainRequest.fulfilledByNote, req);
+      return plainRequest;
+    });
+
     res.status(200).json({
       success: true,
-      count: requests.length,
+      count: plainRequests.length,
       total,
       page,
       pages: Math.ceil(total / limit),
-      data: requests,
+      data: plainRequests,
     });
   } catch (error) {
     next(error);
@@ -72,7 +79,10 @@ exports.getRequestById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    res.status(200).json({ success: true, data: request });
+    const plainRequest = request.toObject();
+    plainRequest.fulfilledByNote = setNoteFileUrl(plainRequest.fulfilledByNote, req);
+
+    res.status(200).json({ success: true, data: plainRequest });
   } catch (error) {
     next(error);
   }

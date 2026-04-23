@@ -8,6 +8,7 @@ const connectDB = async () => {
       family: 4, // Force IPv4 — fixes querySrv ECONNREFUSED on many Windows/ISP setups
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     console.error(`❌ MongoDB connection error: ${error.message}`);
     process.exit(1);

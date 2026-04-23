@@ -1,6 +1,7 @@
 const StudyGroup = require('../models/StudyGroup');
 const fs = require('fs');
 const path = require('path');
+const { setNoteFileUrls } = require('../utils/noteFiles');
 
 // ─── @route  POST /api/groups ─────────────────────────────────────────────────
 // ─── @access Private
@@ -109,7 +110,10 @@ exports.getGroupById = async (req, res, next) => {
       }
     }
 
-    res.status(200).json({ success: true, data: group });
+    const plainGroup = group.toObject();
+    plainGroup.sharedNotes = setNoteFileUrls(plainGroup.sharedNotes, req);
+
+    res.status(200).json({ success: true, data: plainGroup });
   } catch (error) {
     next(error);
   }

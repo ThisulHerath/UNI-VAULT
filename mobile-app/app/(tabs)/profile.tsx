@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, Alert,
+  ActivityIndicator, Image, Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 import { noteService } from '../../services/dataServices';
@@ -15,6 +14,8 @@ export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuth();
   const [myNotes, setMyNotes]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -33,10 +34,18 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); } },
-    ]);
+    setShowSignOutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      setSigningOut(true);
+      await logout();
+      setShowSignOutModal(false);
+      router.replace('/(auth)/welcome');
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   const StatBox = ({ label, value }: any) => (
@@ -100,7 +109,7 @@ export default function ProfileScreen() {
       {/* My recent notes */}
       <Text style={styles.section}>My Notes</Text>
       {myNotes.length === 0
-        ? <Text style={styles.empty}>You haven't uploaded any notes yet.</Text>
+        ? <Text style={styles.empty}>You haven&apos;t uploaded any notes yet.</Text>
         : myNotes.map(n => (
             <TouchableOpacity key={n._id} style={styles.noteCard} onPress={() => router.push(`/note/${n._id}`)}>
               <Ionicons name="document-text-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
@@ -118,6 +127,47 @@ export default function ProfileScreen() {
       <MenuItem icon="lock-closed-outline"   label="Change Password"   onPress={() => router.push('/profile/password')} />
       <MenuItem icon="bookmark-outline"      label="My Collections"    onPress={() => router.push('/collections')} />
       <MenuItem icon="log-out-outline"       label="Sign Out"  color={Colors.error} onPress={handleLogout} />
+
+      <Modal
+        visible={showSignOutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSignOutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="log-out-outline" size={20} color={Colors.error} />
+              </View>
+              <Text style={styles.modalTitle}>Sign Out</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>Are you sure you want to sign out from UniVault?</Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowSignOutModal(false)}
+                disabled={signingOut}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSignOutBtn, signingOut && { opacity: 0.7 }]}
+                onPress={confirmLogout}
+                disabled={signingOut}
+              >
+                {signingOut
+                  ? <ActivityIndicator color={Colors.text} size="small" />
+                  : <Text style={styles.modalSignOutText}>Sign Out</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -152,5 +202,16 @@ const styles = StyleSheet.create({
   menuIcon:         { width: 34, height: 34, borderRadius: Radius.sm, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
   menuLabel:        { flex: 1, fontSize: FontSizes.md, color: Colors.text, fontWeight: '500' },
   empty:            { textAlign: 'center', color: Colors.textMuted, fontSize: FontSizes.sm, marginHorizontal: Spacing.md },
+  modalOverlay:     { flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: Spacing.lg },
+  modalCard:        { backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md },
+  modalHeader:      { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
+  modalIconWrap:    { width: 36, height: 36, borderRadius: Radius.full, backgroundColor: Colors.error + '1A', justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
+  modalTitle:       { fontSize: FontSizes.lg, fontWeight: '700', color: Colors.text },
+  modalMessage:     { fontSize: FontSizes.md, color: Colors.textMuted, lineHeight: 22 },
+  modalActions:     { flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.md, gap: Spacing.sm },
+  modalCancelBtn:   { paddingHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceAlt },
+  modalCancelText:  { color: Colors.textMuted, fontWeight: '700', fontSize: FontSizes.sm },
+  modalSignOutBtn:  { minWidth: 100, paddingHorizontal: Spacing.md, paddingVertical: 10, borderRadius: Radius.md, backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center' },
+  modalSignOutText: { color: Colors.text, fontWeight: '700', fontSize: FontSizes.sm },
 });
 

@@ -1,4 +1,5 @@
 const Collection = require('../models/Collection');
+const { setNoteFileUrls } = require('../utils/noteFiles');
 
 // ─── @route  POST /api/collections ────────────────────────────────────────────
 // ─── @access Private
@@ -55,7 +56,10 @@ exports.getCollectionById = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'This collection is private.' });
     }
 
-    res.status(200).json({ success: true, data: collection });
+    const plainCollection = collection.toObject();
+    plainCollection.notes = setNoteFileUrls(plainCollection.notes, req);
+
+    res.status(200).json({ success: true, data: plainCollection });
   } catch (error) {
     next(error);
   }

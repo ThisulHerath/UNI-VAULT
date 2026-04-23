@@ -6,6 +6,7 @@ const {
   createNote,
   getNotes,
   getNoteById,
+  getNoteFile,
   updateNote,
   deleteNote,
   getMyNotes,
@@ -31,6 +32,7 @@ const validateRequest = (req, res, next) => {
 // Public
 router.get('/',    getNotes);
 router.get('/my',  protect, getMyNotes);
+router.get('/:id/file', getNoteFile);
 router.get('/:id', getNoteById);
 
 // Protected

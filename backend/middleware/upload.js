@@ -1,9 +1,13 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const {
+  NOTE_MAX_FILE_SIZE_BYTES,
+  isAllowedNoteMimeType,
+} = require('../utils/noteFiles');
 
 // ─── Create upload directories if they don't exist ────────────────────────────
-const uploadDirs = ['uploads/notes', 'uploads/avatars', 'uploads/covers'];
+const uploadDirs = ['uploads/avatars', 'uploads/covers'];
 uploadDirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -17,19 +21,8 @@ const sanitizeFilename = (filename) => {
     .slice(0, 100); // Limit length
 };
 
-// ─── Note / Document uploads (supports PDF, image, docx) ──────────────────────
-const noteStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/notes');
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const userId = req.user?._id || 'anonymous';
-    const ext = path.extname(file.originalname);
-    const name = sanitizeFilename(path.basename(file.originalname, ext));
-    cb(null, `${userId}-${timestamp}-${name}${ext}`);
-  },
-});
+// ─── Note / Document uploads (stored in MongoDB via GridFS) ───────────────────
+const noteStorage = multer.memoryStorage();
 
 // ─── User avatar uploads ──────────────────────────────────────────────────────
 const avatarStorage = multer.diskStorage({
@@ -60,12 +53,10 @@ const coverStorage = multer.diskStorage({
 // ─── File filter: allowed types ────────────────────────────────────────────────
 const fileFilter = {
   note: (req, file, cb) => {
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 
-                     'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (allowed.includes(file.mimetype)) {
+    if (isAllowedNoteMimeType(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Invalid file type: ${file.mimetype}. Allowed: PDF, JPG, PNG, GIF, DOC, DOCX`));
+      cb(new Error(`Invalid file type: ${file.mimetype}. Allowed: PDF, JPG, PNG, GIF, WebP, DOCX`));
     }
   },
   avatar: (req, file, cb) => {
@@ -78,8 +69,8 @@ const fileFilter = {
   },
 };
 
-// File size limit: 20 MB
-const limits = { fileSize: 20 * 1024 * 1024 };
+// File size limit: 15 MB to stay safely under MongoDB's document/file overhead.
+const limits = { fileSize: NOTE_MAX_FILE_SIZE_BYTES };
 
 exports.uploadNote   = multer({ storage: noteStorage,   fileFilter: fileFilter.note,   limits });
 exports.uploadAvatar = multer({ storage: avatarStorage, fileFilter: fileFilter.avatar, limits });

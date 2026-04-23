@@ -1,61 +1,171 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
-const { width, height } = Dimensions.get('window');
-
-// Avurudu Theme Colors
-const AvuruduColors = {
-  crimsonRed: '#C0392B',
-  goldenYellow: '#F39C12',
-  auspiciousGreen: '#27AE60',
-  deepOrange: '#E67E22',
-};
+const ACCENT_GOLD = '#D58B2A';
+const ACCENT_CYAN = '#33B7A8';
 
 export default function WelcomeScreen() {
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const contentRise = useRef(new Animated.Value(28)).current;
+  const orbitA = useRef(new Animated.Value(0)).current;
+  const orbitB = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(contentFade, {
+        toValue: 1,
+        duration: 700,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentRise, {
+        toValue: 0,
+        duration: 700,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const loopA = Animated.loop(
+      Animated.sequence([
+        Animated.timing(orbitA, {
+          toValue: 1,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orbitA, {
+          toValue: 0,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    const loopB = Animated.loop(
+      Animated.sequence([
+        Animated.timing(orbitB, {
+          toValue: 1,
+          duration: 4100,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orbitB, {
+          toValue: 0,
+          duration: 4100,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loopA.start();
+    loopB.start();
+
+    return () => {
+      loopA.stop();
+      loopB.stop();
+    };
+  }, [contentFade, contentRise, orbitA, orbitB]);
+
+  const orbATranslateY = orbitA.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -18],
+  });
+  const orbATranslateX = orbitA.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 9],
+  });
+
+  const orbBTranslateY = orbitB.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -14],
+  });
+  const orbBTranslateX = orbitB.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -10],
+  });
+
   return (
-    <View style={styles.container}>
-      {/* Top half with Illustration */}
-      <View style={styles.imageContainer}>
-        <View style={styles.imageBackgroundWrapper}>
-          <Image 
-            source={require('../../assets/images/avurudu_welcome.png')} 
-            style={styles.image}
-            resizeMode="cover"
-          />
-        </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.backdrop}>
+        <Animated.View
+          style={[
+            styles.glow,
+            styles.glowOne,
+            {
+              transform: [{ translateY: orbATranslateY }, { translateX: orbATranslateX }],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.glow,
+            styles.glowTwo,
+            {
+              transform: [{ translateY: orbBTranslateY }, { translateX: orbBTranslateX }],
+            },
+          ]}
+        />
       </View>
 
-      {/* Bottom half with Content */}
-      <View style={styles.contentContainer}>
-        <View style={styles.badgeContainer}>
-          <Text style={styles.badgeText}>🎉 Happy Sinhala and Tamil New Year!</Text>
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: contentFade,
+            transform: [{ translateY: contentRise }],
+          },
+        ]}
+      >
+        <View style={styles.topBadge}>
+          <Text style={styles.topBadgeText}>Collaborative Learning Hub</Text>
         </View>
-        
-        <Text style={styles.title}>Welcome to UniVault</Text>
-        
-        <Text style={styles.subtitle}>
-          Step into a vibrant collaborative study space. Like the bright Avurudu Sun, Erabadu flowers, and the rhythm of the Rabana, let's bring new energy to your academic journey.
-        </Text>
+
+        <View style={styles.heroBlock}>
+          <Text style={styles.brand}>UniVault</Text>
+          <Text style={styles.title}>Study better together.</Text>
+          <Text style={styles.subtitle}>
+            Share notes, discover quality resources, and stay productive with your campus community.
+          </Text>
+        </View>
+
+        <View style={styles.pillRow}>
+          <View style={styles.pill}><Text style={styles.pillText}>Notes</Text></View>
+          <View style={styles.pill}><Text style={styles.pillText}>Reviews</Text></View>
+          <View style={styles.pill}><Text style={styles.pillText}>Groups</Text></View>
+        </View>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, styles.primaryButton]} 
-            onPress={() => router.push('/(auth)/register')}
+            onPress={() => router.push('/(auth)/login')}
           >
-            <Text style={styles.primaryButtonText}>Get Started</Text>
+            <Text style={styles.primaryButtonText}>Sign In</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.button, styles.secondaryButton]} 
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => router.push('/(auth)/register')}
           >
-            <Text style={styles.secondaryButtonText}>Log In</Text>
+            <Text style={styles.secondaryButtonText}>Create Account</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </View>
+
+        <Text style={styles.footnote}>Built for focused learners across every semester.</Text>
+      </Animated.View>
+    </SafeAreaView>
   );
 }
 
@@ -64,85 +174,127 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  imageContainer: {
-    height: height * 0.55,
-    width: '100%',
-    position: 'relative',
-  },
-  imageBackgroundWrapper: {
-    flex: 1,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
-    backgroundColor: AvuruduColors.crimsonRed,
   },
-  image: {
-    width: '100%',
-    height: '100%',
-    // Adding slight opacity to blend if needed, but 'cover' handles it well
+  glow: {
+    position: 'absolute',
+    borderRadius: Radius.full,
   },
-  contentContainer: {
+  glowOne: {
+    width: 280,
+    height: 280,
+    top: -90,
+    right: -100,
+    backgroundColor: `${Colors.primary}33`,
+  },
+  glowTwo: {
+    width: 260,
+    height: 260,
+    bottom: 120,
+    left: -110,
+    backgroundColor: `${ACCENT_CYAN}26`,
+  },
+  content: {
     flex: 1,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.lg,
     justifyContent: 'center',
   },
-  badgeContainer: {
-    backgroundColor: `${AvuruduColors.goldenYellow}20`, // 20% opacity
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+  topBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: `${ACCENT_GOLD}22`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
     borderRadius: Radius.full,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: `${AvuruduColors.goldenYellow}50`,
+    borderColor: `${ACCENT_GOLD}66`,
   },
-  badgeText: {
-    color: AvuruduColors.goldenYellow,
+  topBadgeText: {
+    color: ACCENT_GOLD,
     fontWeight: '700',
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
+    letterSpacing: 0.3,
+  },
+  heroBlock: {
+    marginBottom: Spacing.lg,
+  },
+  brand: {
+    color: Colors.text,
+    fontSize: 36,
+    fontWeight: '800',
+    marginBottom: 2,
   },
   title: {
-    fontSize: FontSizes.xxxl,
+    fontSize: 34,
     fontWeight: '800',
     color: Colors.text,
-    textAlign: 'center',
     marginBottom: Spacing.sm,
+    lineHeight: 40,
   },
   subtitle: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.lg,
     color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: Spacing.xxl,
+    lineHeight: 25,
+    maxWidth: 430,
   },
-  buttonContainer: {
-    width: '100%',
-    gap: Spacing.md,
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: Spacing.xl,
   },
-  button: {
-    width: '100%',
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: AvuruduColors.crimsonRed,
-  },
-  secondaryButton: {
+  pill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  pillText: {
+    color: Colors.textMuted,
+    fontWeight: '700',
+    fontSize: FontSizes.xs,
+  },
+  buttonContainer: {
+    width: '100%',
+    gap: Spacing.sm,
+  },
+  button: {
+    width: '100%',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButton: {
+    backgroundColor: Colors.primary,
+    borderWidth: 1,
+    borderColor: '#D34D3E',
+  },
+  secondaryButton: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: `${Colors.textMuted}66`,
+  },
   primaryButtonText: {
     color: Colors.text,
     fontWeight: '700',
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
   },
   secondaryButtonText: {
     color: Colors.text,
     fontWeight: '700',
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
+  },
+  footnote: {
+    marginTop: Spacing.md,
+    color: Colors.textMuted,
+    fontSize: FontSizes.xs,
+    textAlign: 'center',
   },
 });

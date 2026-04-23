@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Link, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
@@ -86,6 +87,11 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(auth)/welcome')}>
+          <Ionicons name="arrow-back" size={16} color={Colors.textMuted} />
+          <Text style={styles.backBtnText}>Back to Home</Text>
+        </TouchableOpacity>
+
         <View style={styles.header}>
           <Text style={styles.logo}>📚 UniVault</Text>
           <Text style={styles.tagline}>Create your account</Text>
@@ -128,6 +134,8 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container:      { flex: 1, backgroundColor: Colors.background },
   scroll:         { flexGrow: 1, justifyContent: 'center', padding: Spacing.lg },
+  backBtn:        { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, marginBottom: Spacing.md, paddingHorizontal: 2, paddingVertical: 2 },
+  backBtnText:    { color: Colors.textMuted, fontSize: FontSizes.sm, fontWeight: '600' },
   header:         { alignItems: 'center', marginBottom: Spacing.lg },
   logo:           { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text, marginBottom: 4 },
   tagline:        { fontSize: FontSizes.md, color: Colors.textMuted },
