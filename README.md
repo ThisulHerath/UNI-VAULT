@@ -18,7 +18,7 @@
 - 📚 **Organize Collections** of bookmarked notes by subject
 - 👥 **Form Study Groups** with classmates and collaborate
 - 🔍 **Search & Discover** notes by subject, tags, and ratings
-- 💬 **Request Notes** when you can't find what you need
+- 💬 **Request Notes** when you can't find what you need ...........
 
 ---
 
