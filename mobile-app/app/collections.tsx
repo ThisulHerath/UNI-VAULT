@@ -176,6 +176,7 @@ export default function CollectionsScreen() {
   };
 
   const renderItem = ({ item }: any) => {
+    // Calculate the total number of notes in the collection
     const noteCount = Array.isArray(item?.notes) ? item.notes.length : 0;
     const fulfillmentCount = Array.isArray(item?.requestFulfillments) ? item.requestFulfillments.length : 0;
     const totalCount = noteCount + fulfillmentCount;
