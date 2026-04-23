@@ -29,8 +29,8 @@ export const noteService = {
   },
 
   // Reviews nested under notes
-  getReviews: async (noteId: string) => {
-    const res = await api.get(`/notes/${noteId}/reviews`);
+  getReviews: async (noteId: string, params?: object) => {
+    const res = await api.get(`/notes/${noteId}/reviews`, { params });
     return res.data;
   },
   createReview: async (noteId: string, data: { rating: number; comment?: string }) => {
@@ -63,6 +63,10 @@ export const subjectService = {
 };
 
 export const reviewService = {
+  createReview: async (noteId: string, data: { rating: number; comment?: string }) => {
+    const res = await api.post(`/notes/${noteId}/reviews`, data);
+    return res.data;
+  },
   getReviewById: async (id: string) => {
     const res = await api.get(`/reviews/${id}`);
     return res.data;
@@ -73,6 +77,14 @@ export const reviewService = {
   },
   deleteReview: async (id: string) => {
     const res = await api.delete(`/reviews/${id}`);
+    return res.data;
+  },
+  voteReview: async (id: string, value: 'helpful' | 'notHelpful') => {
+    const res = await api.post(`/reviews/${id}/vote`, { value });
+    return res.data;
+  },
+  reportReview: async (id: string, reason: 'spam' | 'offensive' | 'misleading') => {
+    const res = await api.post(`/reviews/${id}/report`, { reason });
     return res.data;
   },
 };

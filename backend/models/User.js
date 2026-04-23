@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null, // Cloudinary public_id for deletion
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
     university: {
       type: String,
       trim: true,
@@ -48,6 +52,11 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    moderationStrikeCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     // References to other collections
     studyGroups: [

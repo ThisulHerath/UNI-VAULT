@@ -1,5 +1,6 @@
 const StudyGroup = require('../models/StudyGroup');
-const cloudinary  = require('../config/cloudinary');
+const fs = require('fs');
+const path = require('path');
 
 // ─── @route  POST /api/groups ─────────────────────────────────────────────────
 // ─── @access Private
@@ -19,7 +20,8 @@ exports.createGroup = async (req, res, next) => {
     };
 
     if (req.file) {
-      groupData.coverImage    = req.file.path;
+      const coverUrl = `${req.protocol}://${req.get('host')}/uploads/covers/${req.file.filename}`;
+      groupData.coverImage    = coverUrl;
       groupData.coverPublicId = req.file.filename;
     }
 
@@ -136,10 +138,15 @@ exports.updateGroup = async (req, res, next) => {
     if (batch)       group.batch       = batch;
 
     if (req.file) {
+      // Delete old cover image from disk
       if (group.coverPublicId) {
-        await cloudinary.uploader.destroy(group.coverPublicId);
+        const oldFilePath = path.join('uploads/covers', group.coverPublicId);
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
       }
-      group.coverImage    = req.file.path;
+      const coverUrl = `${req.protocol}://${req.get('host')}/uploads/covers/${req.file.filename}`;
+      group.coverImage    = coverUrl;
       group.coverPublicId = req.file.filename;
     }
 
@@ -268,8 +275,12 @@ exports.deleteGroup = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Only group admins can delete this group.' });
     }
 
+    // Delete cover image from disk
     if (group.coverPublicId) {
-      await cloudinary.uploader.destroy(group.coverPublicId);
+      const filePath = path.join('uploads/covers', group.coverPublicId);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     await group.deleteOne();

@@ -4,19 +4,32 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+import { authService } from '../../services/authService';
 
 export default function PasswordScreen() {
   const [formData, setFormData] = useState({ current: '', newPassword: '', confirm: '' });
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
+    if (!formData.current || !formData.newPassword || !formData.confirm) {
+      return Toast.show({ type: 'error', text1: 'All fields are required' });
+    }
+
+    if (formData.newPassword.length < 6) {
+      return Toast.show({ type: 'error', text1: 'New password must be at least 6 characters' });
+    }
+
     if (formData.newPassword !== formData.confirm) {
         return Toast.show({ type: 'error', text1: 'Passwords do not match' });
     }
+
+    if (formData.current === formData.newPassword) {
+      return Toast.show({ type: 'error', text1: 'New password must be different from current password' });
+    }
+
     setLoading(true);
     try {
-      // Simulate update API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await authService.updatePassword(formData.current, formData.newPassword);
       Toast.show({ type: 'success', text1: 'Password Changed Successfully' });
       router.back();
     } catch (e: any) {

@@ -9,6 +9,9 @@ interface User {
   role: string;
   university: string | null;
   batch: string | null;
+  isEmailVerified?: boolean;
+  reviewCount?: number;
+  averageReviewRating?: number;
 }
 
 interface AuthContextType {

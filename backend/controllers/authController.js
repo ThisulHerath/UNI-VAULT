@@ -2,7 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
-const cloudinary = require('../config/cloudinary');
+const Review = require('../models/Review');
+const fs = require('fs');
+const path = require('path');
 
 // Helper: sign and return a JWT token
 const signToken = (id) =>
@@ -10,20 +12,34 @@ const signToken = (id) =>
     expiresIn: process.env.JWT_EXPIRE,
   });
 
-const sendTokenResponse = (user, statusCode, res) => {
+const buildUserPayload = async (userDoc) => {
+  const user = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+  const stats = await Review.aggregate([
+    { $match: { reviewer: userDoc._id, isHidden: false } },
+    {
+      $group: {
+        _id: '$reviewer',
+        reviewCount: { $sum: 1 },
+        averageReviewRating: { $avg: '$rating' },
+      },
+    },
+  ]);
+
+  const summary = stats[0] || { reviewCount: 0, averageReviewRating: 0 };
+  return {
+    ...user,
+    reviewCount: summary.reviewCount,
+    averageReviewRating: summary.reviewCount > 0 ? Math.round(summary.averageReviewRating * 10) / 10 : 0,
+  };
+};
+
+const sendTokenResponse = async (user, statusCode, res) => {
   const token = signToken(user._id);
+  const payload = await buildUserPayload(user);
   res.status(statusCode).json({
     success: true,
     token,
-    data: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar,
-      role: user.role,
-      university: user.university,
-      batch: user.batch,
-    },
+    data: payload,
   });
 };
 
@@ -53,7 +69,7 @@ exports.register = async (req, res, next) => {
       batch,
     });
 
-    sendTokenResponse(user, 201, res);
+    await sendTokenResponse(user, 201, res);
   } catch (error) {
     next(error);
   }
@@ -83,7 +99,7 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Account deactivated. Contact support.' });
     }
 
-    sendTokenResponse(user, 200, res);
+    await sendTokenResponse(user, 200, res);
   } catch (error) {
     next(error);
   }
@@ -94,7 +110,8 @@ exports.login = async (req, res, next) => {
 exports.getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
-    res.status(200).json({ success: true, data: user });
+    const payload = await buildUserPayload(user);
+    res.status(200).json({ success: true, data: payload });
   } catch (error) {
     next(error);
   }
@@ -107,14 +124,18 @@ exports.updateProfile = async (req, res, next) => {
     const { name, university, batch } = req.body;
     const updateData = { name, university, batch };
 
-    // Handle avatar upload via Cloudinary (file attached by uploadAvatar middleware)
+    // Handle avatar upload (file attached by uploadAvatar middleware)
     if (req.file) {
-      // Delete old avatar from Cloudinary if it exists
+      // Delete old avatar from disk if it exists
       if (req.user.avatarPublicId) {
-        await cloudinary.uploader.destroy(req.user.avatarPublicId);
+        const oldFilePath = path.join('uploads/avatars', req.user.avatarPublicId);
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
       }
-      updateData.avatar = req.file.path;           // Cloudinary secure_url
-      updateData.avatarPublicId = req.file.filename; // Cloudinary public_id
+      const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+      updateData.avatar = avatarUrl;           // Local file URL
+      updateData.avatarPublicId = req.file.filename; // Store filename for deletion
     }
 
     const user = await User.findByIdAndUpdate(req.user._id, updateData, {
@@ -122,7 +143,8 @@ exports.updateProfile = async (req, res, next) => {
       runValidators: true,
     });
 
-    res.status(200).json({ success: true, data: user });
+    const payload = await buildUserPayload(user);
+    res.status(200).json({ success: true, data: payload });
   } catch (error) {
     next(error);
   }
@@ -143,7 +165,7 @@ exports.updatePassword = async (req, res, next) => {
     user.password = await bcrypt.hash(newPassword, 12);
     await user.save();
 
-    sendTokenResponse(user, 200, res);
+    await sendTokenResponse(user, 200, res);
   } catch (error) {
     next(error);
   }
@@ -155,9 +177,12 @@ exports.deleteAccount = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
 
-    // Delete avatar from Cloudinary
+    // Delete avatar from disk
     if (user.avatarPublicId) {
-      await cloudinary.uploader.destroy(user.avatarPublicId);
+      const filePath = path.join('uploads/avatars', user.avatarPublicId);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     // Soft delete — keeps data integrity for reviews/notes

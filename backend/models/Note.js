@@ -89,8 +89,24 @@ const noteSchema = new mongoose.Schema(
   }
 );
 
-// Text index for search functionality
+// ─── Production Indexes ───────────────────────────────────────────────────────
+// Text index for full-text search (title, description, tags)
 noteSchema.index({ title: 'text', description: 'text', tags: 'text' });
+
+// Fast filtering by subject
+noteSchema.index({ subject: 1, isPublic: 1, createdAt: -1 });
+
+// Fast filtering by uploader (my notes)
+noteSchema.index({ uploadedBy: 1, createdAt: -1 });
+
+// Fast sorting by rating and views
+noteSchema.index({ averageRating: -1, totalReviews: -1, viewCount: -1 });
+
+// Fast lookup by tag
+noteSchema.index({ tags: 1, isPublic: 1 });
+
+// For timestamp queries (recent notes)
+noteSchema.index({ createdAt: -1 });
 
 // Virtual: All reviews for this note
 noteSchema.virtual('reviews', {

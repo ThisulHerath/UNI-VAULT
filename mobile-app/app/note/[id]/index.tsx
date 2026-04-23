@@ -1,42 +1,133 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, Linking,
+  ActivityIndicator, Alert, Linking, TextInput, Modal,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../context/AuthContext';
 import { noteService, reviewService } from '../../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../../constants/theme';
+
+const REVIEW_PREFS_KEY = 'univault_review_prefs';
+const REVIEW_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: '4plus', label: '4-5 Stars' },
+  { key: '3plus', label: '3+ Stars' },
+  { key: 'low', label: '1-2 Stars' },
+] as const;
+
+const REVIEW_SORTS = [
+  { key: 'helpful', label: 'Most Helpful' },
+  { key: 'recent', label: 'Recent' },
+  { key: 'highest', label: 'Highest Rating' },
+  { key: 'lowest', label: 'Lowest Rating' },
+] as const;
+
+const REPORT_REASONS = [
+  { label: 'Spam', value: 'spam' },
+  { label: 'Offensive', value: 'offensive' },
+  { label: 'Misleading', value: 'misleading' },
+] as const;
+
+type ReportReason = (typeof REPORT_REASONS)[number]['value'];
+
+const ratingRanges: Record<string, { minRating?: number; maxRating?: number }> = {
+  all: {},
+  '4plus': { minRating: 4, maxRating: 5 },
+  '3plus': { minRating: 3, maxRating: 5 },
+  low: { minRating: 1, maxRating: 2 },
+};
+
+const formatTimestamp = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.round(diffMs / 60000);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffHours / 24);
+
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  return date.toLocaleDateString();
+};
 
 export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const [note, setNote]       = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewStats, setReviewStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [myRating, setMyRating] = useState(0);
   const [myComment, setMyComment] = useState('');
+  const [myReviewId, setMyReviewId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [sortBy, setSortBy] = useState<(typeof REVIEW_SORTS)[number]['key']>('helpful');
+  const [ratingFilter, setRatingFilter] = useState<(typeof REVIEW_FILTERS)[number]['key']>('all');
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportTargetReviewId, setReportTargetReviewId] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadPrefs = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(REVIEW_PREFS_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.sortBy) setSortBy(parsed.sortBy);
+          if (parsed.ratingFilter) setRatingFilter(parsed.ratingFilter);
+        }
+      } catch (error) {
+        console.warn('Failed to load review preferences', error);
+      } finally {
+        setPrefsLoaded(true);
+      }
+    };
+    loadPrefs();
+  }, []);
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    const persistPrefs = async () => {
+      await AsyncStorage.setItem(REVIEW_PREFS_KEY, JSON.stringify({ sortBy, ratingFilter }));
+    };
+    persistPrefs();
+  }, [prefsLoaded, sortBy, ratingFilter]);
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+
     const load = async () => {
       try {
         const [noteRes, revRes] = await Promise.all([
           noteService.getNoteById(id),
-          noteService.getReviews(id),
+          noteService.getReviews(id, {
+            sort: sortBy,
+            ...ratingRanges[ratingFilter],
+          }),
         ]);
         setNote(noteRes.data);
         setReviews(revRes.data || []);
+        setReviewStats(revRes.stats || null);
         const mine = revRes.data?.find((r: any) => r.reviewer?._id === user?._id);
-        if (mine) { setMyRating(mine.rating); setMyComment(mine.comment || ''); }
+        if (mine) {
+          setMyReviewId(mine._id);
+          setMyRating(mine.rating);
+          setMyComment(mine.comment || '');
+        } else {
+          setMyReviewId(null);
+        }
       } catch (e: any) {
         Toast.show({ type: 'error', text1: 'Error', text2: e.message });
       } finally { setLoading(false); }
     };
     load();
-  }, [id]);
+  }, [id, user?._id, prefsLoaded, sortBy, ratingFilter]);
 
   const handleDelete = () => {
     Alert.alert('Delete Note', 'Are you sure? This cannot be undone.', [
@@ -49,16 +140,133 @@ export default function NoteDetailScreen() {
   };
 
   const submitReview = async () => {
-    if (!myRating) { Toast.show({ type: 'error', text1: 'Select a rating 1–5' }); return; }
+    // Comprehensive client-side validation
+    if (!myRating) { 
+      Toast.show({ type: 'error', text1: 'Rating Required', text2: 'Please select a rating between 1 and 5' }); 
+      return; 
+    }
+    if (myRating < 1 || myRating > 5) {
+      Toast.show({ type: 'error', text1: 'Invalid Rating', text2: 'Rating must be between 1 and 5' });
+      return;
+    }
+    const trimmedComment = myComment.trim();
+    if (trimmedComment && trimmedComment.length < 10) {
+      Toast.show({ type: 'error', text1: 'Comment Too Short', text2: 'Comments must be at least 10 characters when provided' });
+      return;
+    }
+    if (trimmedComment.length > 500) {
+      Toast.show({ type: 'error', text1: 'Comment Too Long', text2: 'Comment cannot exceed 500 characters' });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await noteService.createReview(id, { rating: myRating, comment: myComment });
-      Toast.show({ type: 'success', text1: 'Review submitted!' });
-      const res = await noteService.getReviews(id);
+      const payload: { rating: number; comment?: string } = { rating: myRating };
+      if (trimmedComment) {
+        payload.comment = trimmedComment;
+      }
+
+      if (myReviewId) {
+        await reviewService.updateReview(myReviewId, payload);
+        Toast.show({ type: 'success', text1: '✅ Review updated!', text2: 'Your review was updated successfully' });
+      } else {
+        await noteService.createReview(id, payload);
+        Toast.show({ type: 'success', text1: '✅ Review submitted!', text2: 'Thank you for your feedback' });
+      }
+
+      setMyRating(0);
+      setMyComment('');
+      setMyReviewId(null);
+      const [noteRes, res] = await Promise.all([
+        noteService.getNoteById(id),
+        noteService.getReviews(id, { sort: sortBy, ...ratingRanges[ratingFilter] }),
+      ]);
+      setNote(noteRes.data);
       setReviews(res.data || []);
+      setReviewStats(res.stats || null);
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: e.message });
+      const errorMsg = e.message || 'Failed to submit review';
+      Toast.show({ type: 'error', text1: 'Review Failed', text2: errorMsg });
     } finally { setSubmitting(false); }
+  };
+
+  const handleVote = async (reviewId: string, value: 'helpful' | 'notHelpful') => {
+    try {
+      await reviewService.voteReview(reviewId, value);
+      const [noteRes, res] = await Promise.all([
+        noteService.getNoteById(id),
+        noteService.getReviews(id, { sort: sortBy, ...ratingRanges[ratingFilter] }),
+      ]);
+      setNote(noteRes.data);
+      setReviews(res.data || []);
+      setReviewStats(res.stats || null);
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Vote Failed', text2: error.message || 'Unable to save vote' });
+    }
+  };
+
+  const handleReport = (reviewId: string) => {
+    setReportTargetReviewId(reviewId);
+    setReportModalVisible(true);
+  };
+
+  const submitReport = async (reviewId: string, reason: ReportReason) => {
+    const isValidReason = REPORT_REASONS.some((option) => option.value === reason);
+    if (!isValidReason) {
+      Toast.show({ type: 'error', text1: 'Report Failed', text2: 'Invalid report reason selected' });
+      return;
+    }
+
+    try {
+      setReportModalVisible(false);
+      const reportRes = await reviewService.reportReview(reviewId, reason);
+      Toast.show({
+        type: 'success',
+        text1: 'Report sent',
+        text2: reportRes.message || 'Thanks for helping keep reviews trustworthy',
+      });
+      const [noteRes, reviewsRes] = await Promise.all([
+        noteService.getNoteById(id),
+        noteService.getReviews(id, { sort: sortBy, ...ratingRanges[ratingFilter] }),
+      ]);
+      setNote(noteRes.data);
+      setReviews(reviewsRes.data || []);
+      setReviewStats(reviewsRes.stats || null);
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Report Failed', text2: error.message || 'Unable to report review' });
+    } finally {
+      setReportTargetReviewId(null);
+    }
+  };
+
+  const handleDeleteReview = (reviewId: string) => {
+    Alert.alert('Delete Review', 'Are you sure you want to delete your review?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await reviewService.deleteReview(reviewId);
+          Toast.show({ type: 'success', text1: 'Review deleted' });
+          setMyReviewId(null);
+          setMyRating(0);
+          setMyComment('');
+          const [noteRes, res] = await Promise.all([
+            noteService.getNoteById(id),
+            noteService.getReviews(id, { sort: sortBy, ...ratingRanges[ratingFilter] }),
+          ]);
+          setNote(noteRes.data);
+          setReviews(res.data || []);
+          setReviewStats(res.stats || null);
+        } catch (error: any) {
+          Toast.show({ type: 'error', text1: 'Delete Failed', text2: error.message || 'Unable to delete review' });
+        }
+      }},
+    ]);
+  };
+
+  const beginEditReview = (review: any) => {
+    setMyReviewId(review._id);
+    setMyRating(review.rating);
+    setMyComment(review.comment || '');
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
@@ -102,6 +310,32 @@ export default function NoteDetailScreen() {
           <Text style={styles.meta}>{note.viewCount} views</Text>
         </View>
 
+        {reviewStats && (
+          <View style={styles.statsCard}>
+            <View style={styles.statsHeader}>
+              <Text style={styles.statsTitle}>Rating Breakdown</Text>
+              <Text style={styles.statsSubtitle}>{reviewStats.totalReviews} active reviews</Text>
+            </View>
+            <View style={styles.statsSummaryRow}>
+              <Text style={styles.statsSummaryValue}>{reviewStats.averageRating?.toFixed(1) || '0.0'}</Text>
+              <Text style={styles.statsSummaryLabel}>Average Rating</Text>
+            </View>
+            {[5,4,3,2,1].map(star => {
+              const count = reviewStats.distribution?.[star] || 0;
+              const percent = reviewStats.totalReviews ? (count / reviewStats.totalReviews) * 100 : 0;
+              return (
+                <View key={star} style={styles.ratingBarRow}>
+                  <Text style={styles.ratingBarLabel}>{star}★</Text>
+                  <View style={styles.ratingBarTrack}>
+                    <View style={[styles.ratingBarFill, { width: `${percent}%` }]} />
+                  </View>
+                  <Text style={styles.ratingBarCount}>{count}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {note.tags?.length > 0 && (
           <View style={styles.tagRow}>
             {note.tags.map((t: string) => (
@@ -119,10 +353,38 @@ export default function NoteDetailScreen() {
       {/* Reviews */}
       <Text style={styles.section}>Reviews ({reviews.length})</Text>
 
+      <View style={styles.filterCard}>
+        <Text style={styles.filterLabel}>Sort</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {REVIEW_SORTS.map(option => (
+            <TouchableOpacity
+              key={option.key}
+              style={[styles.chip, sortBy === option.key && styles.chipActive]}
+              onPress={() => setSortBy(option.key)}
+            >
+              <Text style={[styles.chipText, sortBy === option.key && styles.chipTextActive]}>{option.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Text style={[styles.filterLabel, { marginTop: Spacing.sm }]}>Filter by rating</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {REVIEW_FILTERS.map(option => (
+            <TouchableOpacity
+              key={option.key}
+              style={[styles.chip, ratingFilter === option.key && styles.chipActive]}
+              onPress={() => setRatingFilter(option.key)}
+            >
+              <Text style={[styles.chipText, ratingFilter === option.key && styles.chipTextActive]}>{option.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Submit review */}
       {!isOwner && (
         <View style={styles.card}>
-          <Text style={styles.reviewLabel}>Your Rating</Text>
+          <Text style={styles.reviewLabel}>{myReviewId ? 'Edit Your Review' : 'Write a Review'}</Text>
           <View style={styles.starRow}>
             {[1,2,3,4,5].map(s => (
               <TouchableOpacity key={s} onPress={() => setMyRating(s)}>
@@ -130,23 +392,140 @@ export default function NoteDetailScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Add a comment (10-500 characters, optional)"
+            placeholderTextColor={Colors.textMuted}
+            value={myComment}
+            onChangeText={setMyComment}
+            multiline
+            textAlignVertical="top"
+          />
           <TouchableOpacity style={styles.submitBtn} onPress={submitReview} disabled={submitting}>
-            {submitting ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.submitText}>Submit Review</Text>}
+            {submitting ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.submitText}>{myReviewId ? 'Update Review' : 'Submit Review'}</Text>}
           </TouchableOpacity>
         </View>
       )}
 
       {reviews.map(r => (
         <View key={r._id} style={styles.reviewCard}>
+          {(() => {
+            const currentVote = (r.votes || []).find((vote: any) => {
+              const voteUserId = typeof vote.user === 'string' ? vote.user : vote.user?._id;
+              return voteUserId === user?._id;
+            })?.value;
+
+            const isHelpfulActive = currentVote === 'helpful';
+            const isNotHelpfulActive = currentVote === 'notHelpful';
+
+            return (
+              <>
+          {r.isHidden && (
+            <View style={styles.reportedBanner}>
+              <Text style={styles.reportedText}>This review has been reported.</Text>
+            </View>
+          )}
           <View style={styles.reviewHeader}>
-            <Text style={styles.reviewerName}>{r.reviewer?.name}</Text>
+            <View style={styles.reviewerBlock}>
+              <Text style={styles.reviewerName}>{r.reviewer?.name}</Text>
+              <View style={styles.badgeRow}>
+                {r.reviewer?.batch && <View style={styles.badge}><Text style={styles.badgeText}>{r.reviewer.batch}</Text></View>}
+                {r.reviewer?.isEmailVerified && <View style={styles.badge}><Text style={styles.badgeText}>Verified</Text></View>}
+                {r.reviewer?.isActiveReviewer && <View style={styles.badge}><Text style={styles.badgeText}>Active Reviewer</Text></View>}
+                {typeof r.reviewer?.averageReviewRating === 'number' && <View style={styles.badge}><Text style={styles.badgeText}>Avg {r.reviewer.averageReviewRating.toFixed(1)}</Text></View>}
+              </View>
+            </View>
             <View style={styles.starRowSmall}>
               {[1,2,3,4,5].map(s => <Ionicons key={s} name={s <= r.rating ? 'star' : 'star-outline'} size={12} color={Colors.star} />)}
             </View>
           </View>
+          <Text style={styles.reviewTimestamp}>
+            Posted {formatTimestamp(r.createdAt)}{r.isEdited ? ` · Edited ${formatTimestamp(r.editedAt || r.updatedAt)}` : ''}
+          </Text>
           {r.comment && <Text style={styles.reviewComment}>{r.comment}</Text>}
+
+          {!r.isHidden && (
+            <View style={styles.voteRow}>
+              <TouchableOpacity
+                style={[styles.voteBtn, isHelpfulActive && styles.voteBtnHelpfulActive]}
+                onPress={() => handleVote(r._id, 'helpful')}
+              >
+                <Ionicons name="thumbs-up-outline" size={16} color={isHelpfulActive ? Colors.text : Colors.primary} />
+                <Text style={[styles.voteText, isHelpfulActive && styles.voteTextActive]}>{r.helpfulVotesCount || 0} Helpful</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.voteBtn, isNotHelpfulActive && styles.voteBtnNotHelpfulActive]}
+                onPress={() => handleVote(r._id, 'notHelpful')}
+              >
+                <Ionicons name="thumbs-down-outline" size={16} color={isNotHelpfulActive ? Colors.text : Colors.error} />
+                <Text style={[styles.voteText, isNotHelpfulActive && styles.voteTextActive]}>{r.notHelpfulVotesCount || 0} Not Helpful</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.voteBtn} onPress={() => handleReport(r._id)}>
+                <Ionicons name="flag-outline" size={16} color={Colors.textMuted} />
+                <Text style={styles.voteText}>Report</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {r.reviewer?._id === user?._id && (
+            <View style={styles.ownerActions}>
+              <TouchableOpacity style={styles.ownerActionBtn} onPress={() => beginEditReview(r)}>
+                <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+                <Text style={styles.ownerActionText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.ownerActionBtn} onPress={() => handleDeleteReview(r._id)}>
+                <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                <Text style={[styles.ownerActionText, { color: Colors.error }]}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+              </>
+            );
+          })()}
         </View>
       ))}
+
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setReportModalVisible(false);
+          setReportTargetReviewId(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Report Review</Text>
+            <Text style={styles.modalSubtitle}>Choose a reason for this report</Text>
+
+            <View style={styles.modalReasonList}>
+              {REPORT_REASONS.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={styles.modalReasonBtn}
+                  onPress={() => {
+                    if (!reportTargetReviewId) return;
+                    submitReport(reportTargetReviewId, option.value);
+                  }}
+                >
+                  <Text style={styles.modalReasonText}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => {
+                setReportModalVisible(false);
+                setReportTargetReviewId(null);
+              }}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -182,4 +561,49 @@ const styles = StyleSheet.create({
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   reviewerName: { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.text },
   reviewComment:{ fontSize: FontSizes.sm, color: Colors.textMuted, marginTop: 4 },
+  reviewerBlock: { flex: 1, paddingRight: Spacing.sm },
+  badgeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  badge:         { backgroundColor: Colors.primary + '18', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeText:     { color: Colors.primary, fontSize: FontSizes.xs, fontWeight: '700' },
+  reviewTimestamp:{ fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 4 },
+  voteRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.sm },
+  voteBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 10, paddingVertical: 6 },
+  voteText:      { fontSize: FontSizes.xs, color: Colors.text, fontWeight: '600' },
+  voteBtnHelpfulActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  voteBtnNotHelpfulActive: { backgroundColor: Colors.error, borderColor: Colors.error },
+  voteTextActive: { color: Colors.text },
+  ownerActions:  { flexDirection: 'row', gap: 10, marginTop: Spacing.sm },
+  ownerActionBtn:{ flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ownerActionText:{ fontSize: FontSizes.xs, color: Colors.primary, fontWeight: '700' },
+  commentInput:  { backgroundColor: Colors.surfaceAlt, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, color: Colors.text, minHeight: 88, padding: Spacing.sm, marginBottom: Spacing.sm, fontSize: FontSizes.md },
+  filterCard:    { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
+  filterLabel:   { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.text, marginBottom: 8 },
+  chipRow:       { flexDirection: 'row', gap: 8, paddingRight: Spacing.sm },
+  chip:          { paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceAlt },
+  chipActive:    { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText:      { fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: '700' },
+  chipTextActive:{ color: Colors.text },
+  statsCard:     { marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm },
+  statsHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  statsTitle:    { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text },
+  statsSubtitle: { fontSize: FontSizes.xs, color: Colors.textMuted },
+  statsSummaryRow:{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginVertical: Spacing.sm },
+  statsSummaryValue:{ fontSize: FontSizes.xxxl, fontWeight: '800', color: Colors.text },
+  statsSummaryLabel:{ fontSize: FontSizes.sm, color: Colors.textMuted },
+  ratingBarRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  ratingBarLabel:{ width: 24, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: '700' },
+  ratingBarTrack: { flex: 1, height: 8, borderRadius: Radius.full, backgroundColor: Colors.surfaceAlt, overflow: 'hidden' },
+  ratingBarFill:  { height: '100%', backgroundColor: Colors.star },
+  ratingBarCount: { width: 24, textAlign: 'right', fontSize: FontSizes.xs, color: Colors.textMuted },
+  reportedBanner:{ backgroundColor: Colors.error + '15', borderRadius: Radius.md, padding: 8, marginBottom: Spacing.sm },
+  reportedText:  { color: Colors.error, fontSize: FontSizes.xs, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: Spacing.md },
+  modalCard: { backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md },
+  modalTitle: { fontSize: FontSizes.lg, fontWeight: '700', color: Colors.text },
+  modalSubtitle: { marginTop: 4, fontSize: FontSizes.sm, color: Colors.textMuted },
+  modalReasonList: { marginTop: Spacing.md, gap: 8 },
+  modalReasonBtn: { backgroundColor: Colors.surfaceAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingVertical: 10, paddingHorizontal: 12 },
+  modalReasonText: { fontSize: FontSizes.sm, color: Colors.text, fontWeight: '600' },
+  modalCancelBtn: { marginTop: Spacing.md, alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 10 },
+  modalCancelText: { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '700' },
 });

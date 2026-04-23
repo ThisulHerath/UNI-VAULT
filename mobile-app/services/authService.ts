@@ -17,6 +17,12 @@ export interface LoginData {
 export const authService = {
   register: async (data: RegisterData) => {
     const res = await api.post('/auth/register', data);
+    if (res.data.token) {
+      await AsyncStorage.setItem('univault_token', res.data.token);
+    }
+    if (res.data.data) {
+      await AsyncStorage.setItem('univault_user', JSON.stringify(res.data.data));
+    }
     return res.data;
   },
 
@@ -48,6 +54,12 @@ export const authService = {
 
   updatePassword: async (currentPassword: string, newPassword: string) => {
     const res = await api.put('/auth/password', { currentPassword, newPassword });
+    if (res.data.token) {
+      await AsyncStorage.setItem('univault_token', res.data.token);
+    }
+    if (res.data.data) {
+      await AsyncStorage.setItem('univault_user', JSON.stringify(res.data.data));
+    }
     return res.data;
   },
 

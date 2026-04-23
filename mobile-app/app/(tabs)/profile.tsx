@@ -81,8 +81,21 @@ export default function ProfileScreen() {
       <View style={styles.statsRow}>
         <StatBox label="Notes" value={myNotes.length} />
         <View style={styles.divider} />
-        <StatBox label="Role" value={user?.role === 'admin' ? '👑 Admin' : '🎓 Student'} />
+        <StatBox label="Reviews" value={user?.reviewCount ?? 0} />
+        <View style={styles.divider} />
+        <StatBox label="Avg Rating" value={(user?.averageReviewRating ?? 0).toFixed(1)} />
       </View>
+
+      {(user?.isEmailVerified || (user?.reviewCount ?? 0) >= 5) && (
+        <View style={styles.badgeRow}>
+          {user?.isEmailVerified && (
+            <View style={styles.badge}><Text style={styles.badgeText}>Verified Email</Text></View>
+          )}
+          {(user?.reviewCount ?? 0) >= 5 && (
+            <View style={styles.badge}><Text style={styles.badgeText}>Active Reviewer</Text></View>
+          )}
+        </View>
+      )}
 
       {/* My recent notes */}
       <Text style={styles.section}>My Notes</Text>
@@ -128,6 +141,9 @@ const styles = StyleSheet.create({
   statVal:          { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.text },
   statLabel:        { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
   divider:          { width: 1, backgroundColor: Colors.border },
+  badgeRow:         { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginHorizontal: Spacing.md, marginTop: Spacing.sm },
+  badge:            { backgroundColor: Colors.primary + '18', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  badgeText:        { color: Colors.primary, fontSize: FontSizes.xs, fontWeight: '700' },
   section:          { fontSize: FontSizes.lg, fontWeight: '700', color: Colors.text, marginTop: Spacing.lg, marginBottom: Spacing.sm, marginHorizontal: Spacing.md },
   noteCard:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   noteTitle:        { flex: 1, fontSize: FontSizes.md, color: Colors.text },

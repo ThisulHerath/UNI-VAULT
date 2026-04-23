@@ -1,5 +1,6 @@
 const Note = require('../models/Note');
-const cloudinary = require('../config/cloudinary');
+const fs = require('fs');
+const path = require('path');
 
 // ─── @route  POST /api/notes ──────────────────────────────────────────────────
 // ─── @access Private
@@ -17,13 +18,16 @@ exports.createNote = async (req, res, next) => {
     else if (req.file.mimetype.startsWith('image/')) fileType = 'image';
     else if (req.file.mimetype.includes('word')) fileType = 'docx';
 
+    // Build file URL: http://localhost:5000/uploads/notes/filename
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/notes/${req.file.filename}`;
+
     const note = await Note.create({
       title,
       description,
       subject,
       uploadedBy: req.user._id,
-      fileUrl: req.file.path,              // Cloudinary secure_url
-      cloudinaryPublicId: req.file.filename, // Cloudinary public_id
+      fileUrl,                          // Local file URL
+      cloudinaryPublicId: req.file.filename, // Store filename for deletion
       fileType,
       fileSize: req.file.size || null,
       originalFileName: req.file.originalname,
@@ -125,9 +129,22 @@ exports.updateNote = async (req, res, next) => {
 
     // Replace file if a new one is uploaded
     if (req.file) {
-      await cloudinary.uploader.destroy(note.cloudinaryPublicId, { resource_type: 'auto' });
-      updateData.fileUrl = req.file.path;
+      // Delete old file from disk
+      if (note.cloudinaryPublicId) {
+        const oldFilePath = path.join('uploads/notes', note.cloudinaryPublicId);
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
+      }
+
+      const fileUrl = `${req.protocol}://${req.get('host')}/uploads/notes/${req.file.filename}`;
+      updateData.fileUrl = fileUrl;
       updateData.cloudinaryPublicId = req.file.filename;
+
+      // Determine new file type
+      if (req.file.mimetype === 'application/pdf') updateData.fileType = 'pdf';
+      else if (req.file.mimetype.startsWith('image/')) updateData.fileType = 'image';
+      else if (req.file.mimetype.includes('word')) updateData.fileType = 'docx';
     }
 
     note = await Note.findByIdAndUpdate(req.params.id, updateData, {
@@ -156,9 +173,12 @@ exports.deleteNote = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this note.' });
     }
 
-    // Delete file from Cloudinary
+    // Delete file from disk
     if (note.cloudinaryPublicId) {
-      await cloudinary.uploader.destroy(note.cloudinaryPublicId, { resource_type: 'auto' });
+      const filePath = path.join('uploads/notes', note.cloudinaryPublicId);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     await note.deleteOne();
