@@ -119,8 +119,18 @@ export default function CollectionsScreen() {
       ];
 
       return fields.some((field) => String(field || '').toLowerCase().includes(query));
+    }).sort((a, b) => {
+      if (sortOption === 'name') {
+        return (a.name || '').localeCompare(b.name || '');
+      } else if (sortOption === 'priority') {
+        const pValues = { high: 3, normal: 2, low: 1 };
+        const pA = pValues[a.priority as keyof typeof pValues] || 2;
+        const pB = pValues[b.priority as keyof typeof pValues] || 2;
+        return pB - pA;
+      }
+      return 0;
     });
-  }, [collections, searchQuery]);
+  }, [collections, searchQuery, filterPriority, sortOption]);
 
   const handleCreateCollection = async () => {
     if (!newName.trim()) {
