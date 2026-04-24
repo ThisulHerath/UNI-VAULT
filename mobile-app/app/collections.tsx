@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
   badge: { fontSize: FontSizes.xs, fontWeight: '700', color: Colors.primary, backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
   meta: { fontSize: FontSizes.xs, color: Colors.primary },
-  empty: { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
+  empty: { textAlign: 'center', color: '#6B7280', marginTop: 60, fontSize: FontSizes.md }, // darker muted text
   
   exploreBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#DBEAFE', borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: '#BFDBFE', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   exploreBannerContent: { flexDirection: 'row', alignItems: 'center' },
