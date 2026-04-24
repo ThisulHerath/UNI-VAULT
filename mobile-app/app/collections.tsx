@@ -169,6 +169,7 @@ export default function CollectionsScreen() {
       resetForm();
       load();
     } catch (e: any) {
+      console.error('Collection creation error:', e);
       Toast.show({ type: 'error', text1: 'Creation failed', text2: e.message });
     } finally {
       setCreating(false);
