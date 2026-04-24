@@ -185,7 +185,7 @@ export default function CollectionsScreen() {
     const borderColor = getPriorityColor(item.priority);
 
     return (
-      <TouchableOpacity style={[styles.card, { borderLeftWidth: 4, borderLeftColor: borderColor }]} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: item._id } })}>
+      <TouchableOpacity activeOpacity={0.7} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: borderColor }]} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: item._id } })}>
         <View style={styles.iconContainer}>
           <Ionicons name={item.isPrivate ? "lock-closed" : "earth"} size={24} color={Colors.primary} />
         </View>
