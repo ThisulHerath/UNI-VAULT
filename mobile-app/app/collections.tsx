@@ -128,6 +128,11 @@ export default function CollectionsScreen() {
         const pB = pValues[b.priority as keyof typeof pValues] || 2;
         return pB - pA;
       }
+      } else if (sortOption === 'date') {
+        const dA = a.targetDate ? new Date(a.targetDate).getTime() : 0;
+        const dB = b.targetDate ? new Date(b.targetDate).getTime() : 0;
+        return dB - dA;
+      }
       return 0;
     });
   }, [collections, searchQuery, filterPriority, sortOption]);
