@@ -51,8 +51,15 @@ const noteSchema = new mongoose.Schema(
     subject: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Subject',
-      required: [true, 'Subject is required'],
+      default: null,
       index: true,
+    },
+    // Fallback subject label for notes that do not use a global Subject record.
+    subjectText: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Subject label cannot exceed 200 characters'],
+      default: null,
     },
     // Relationship: Who uploaded this note?
     uploadedBy: {

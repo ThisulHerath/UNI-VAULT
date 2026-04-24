@@ -8,6 +8,13 @@ import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
 const STATUS_COLOR: any = { open: Colors.success, fulfilled: Colors.primary, closed: Colors.textMuted };
 
+const getStatusLabel = (item: any) => {
+  if (item.status === 'closed' && item.closedReason) {
+    return item.closedReason;
+  }
+  return item.status;
+};
+
 export default function RequestsScreen() {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -30,9 +37,12 @@ export default function RequestsScreen() {
       <View style={{ flex: 1 }}>
         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
         <Text style={styles.meta}>{item.requestedBy?.name} · {item.subject?.name || 'Any Subject'}</Text>
+        {item.status === 'closed' && item.closedReason && (
+          <Text style={styles.closedMeta}>Closed as {item.closedReason}</Text>
+        )}
       </View>
       <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.status] + '25' }]}>
-        <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>{item.status}</Text>
+        <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>{getStatusLabel(item)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -83,6 +93,7 @@ const styles = StyleSheet.create({
   card:            { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
   title:           { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text },
   meta:            { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
+  closedMeta:      { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 4, fontStyle: 'italic' },
   statusBadge:     { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
   statusText:      { fontSize: FontSizes.xs, fontWeight: '700', textTransform: 'capitalize' },
   empty:           { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },

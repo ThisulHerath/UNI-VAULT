@@ -29,12 +29,18 @@ exports.createNote = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please upload a file.' });
     }
 
-    const { title, description, subject, tags, isPublic } = req.body;
+    const { title, description, subject, subjectText, tags, isPublic } = req.body;
+
+    const normalizedSubjectText = subjectText ? subjectText.trim() : '';
+    if (!subject && !normalizedSubjectText) {
+      return res.status(400).json({ success: false, message: 'Please select a subject or add a note-only subject label.' });
+    }
 
     const note = new Note({
       title,
       description,
-      subject,
+      subject: subject || null,
+      subjectText: subject ? null : normalizedSubjectText,
       uploadedBy: req.user._id,
       tags: tags ? tags.split(',').map((t) => t.trim().toLowerCase()) : [],
       isPublic: isPublic !== undefined ? isPublic : true,
@@ -188,13 +194,25 @@ exports.updateNote = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised to update this note.' });
     }
 
-    const { title, description, tags, isPublic } = req.body;
+    const { title, description, subject, subjectText, tags, isPublic } = req.body;
+    const hasSubjectUpdate = Object.prototype.hasOwnProperty.call(req.body, 'subject')
+      || Object.prototype.hasOwnProperty.call(req.body, 'subjectText');
+
     const updateData = {
       title,
       description,
       isPublic,
       tags: tags ? tags.split(',').map((t) => t.trim().toLowerCase()) : note.tags,
     };
+    if (hasSubjectUpdate) {
+      const normalizedSubjectText = subjectText ? subjectText.trim() : '';
+      if (!subject && !normalizedSubjectText) {
+        return res.status(400).json({ success: false, message: 'Please select a subject or add a note-only subject label.' });
+      }
+
+      updateData.subject = subject || null;
+      updateData.subjectText = subject ? null : normalizedSubjectText;
+    }
     const previousFileId = note.fileId;
     const previousLegacyPath = getLegacyNoteFilePath(note);
 

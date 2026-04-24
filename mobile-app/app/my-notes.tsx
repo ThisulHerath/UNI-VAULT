@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { noteService } from '../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../constants/theme';
+
+const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
 
 export default function MyNotesScreen() {
   const [notes, setNotes] = useState<any[]>([]);
@@ -23,7 +26,11 @@ export default function MyNotesScreen() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+    }, [])
+  );
 
   const renderItem = ({ item }: any) => (
     <TouchableOpacity style={styles.card} onPress={() => router.push(`/note/${item._id}`)}>
@@ -32,7 +39,7 @@ export default function MyNotesScreen() {
       </View>
       <View style={styles.infoContainer}>
         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.meta} numberOfLines={1}>{item.subject?.name || 'No Subject'}</Text>
+        <Text style={styles.meta} numberOfLines={1}>{getNoteSubjectLabel(item)}</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
     </TouchableOpacity>

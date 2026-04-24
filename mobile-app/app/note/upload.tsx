@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, ActivityIndicator,
@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
-import { noteService, subjectService } from '../../services/dataServices';
+import { noteService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
 const MAX_NOTE_FILE_SIZE_BYTES = 15 * 1024 * 1024;
@@ -20,6 +20,48 @@ const ALLOWED_NOTE_MIME_TYPES = new Set([
   'image/webp',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
+
+const SUBJECT_CATALOG = [
+  { code: 'IT1010', name: 'Introduction to Programming' },
+  { code: 'IT1020', name: 'Introduction to Computer Systems' },
+  { code: 'IT1030', name: 'Mathematics for Computing' },
+  { code: 'IT1040', name: 'Communication Skills' },
+  { code: 'IT1050', name: 'Object Oriented Concepts' },
+  { code: 'IT1060', name: 'Software Process Modeling' },
+  { code: 'IT1080', name: 'English for Academic Purposes' },
+  { code: 'IT1090', name: 'Information Systems and Data Modeling' },
+  { code: 'IT1100', name: 'Internet and Web Technologies' },
+  { code: 'IT2010', name: 'Mobile Application Development' },
+  { code: 'IT2020', name: 'Software Engineering' },
+  { code: 'IT2021', name: 'Artificial Intelligence and Machine Learning Project' },
+  { code: 'IT2030', name: 'Object Oriented Programming' },
+  { code: 'IT2040', name: 'Database Management Systems' },
+  { code: 'IT2050', name: 'Computer Networks' },
+  { code: 'IT2060', name: 'Operating Systems and System Administration' },
+  { code: 'IT2070', name: 'Data Structures and Algorithms' },
+  { code: 'IT2080', name: 'IT Project' },
+  { code: 'IT2090', name: 'Professional Skills' },
+  { code: 'IT2110', name: 'Probability and Statistics' },
+  { code: 'IT2130', name: 'Operating Systems and System Administration [2026/JAN]' },
+  { code: 'IT2160', name: 'Professional Skills' },
+  { code: 'SE2020', name: 'Web and Mobile Technology' },
+  { code: 'SE3010', name: 'Software Engineering Process & Quality Management' },
+  { code: 'SE3020', name: 'Distributed Systems' },
+  { code: 'SE3030', name: 'Software Architecture' },
+  { code: 'SE3040', name: 'Application Frameworks' },
+  { code: 'SE3050', name: 'User Experience Engineering' },
+  { code: 'SE3070', name: 'Case Studies in Software Engineering' },
+  { code: 'SE3080', name: 'Software Project Management' },
+  { code: 'IT3110', name: 'Industry Placement' },
+  { code: 'IT4010', name: 'Research Project' },
+  { code: 'IT4020', name: 'Advanced Database Management Systems' },
+  { code: 'IT4070', name: 'Preparation for the Professional World' },
+  { code: 'SE4010', name: 'Software Quality Assurance' },
+  { code: 'SE4020', name: 'Software Maintenance and Evolution' },
+  { code: 'SE4030', name: 'Cloud Computing' },
+  { code: 'SE4040', name: 'Software Security' },
+  { code: 'IT4021', name: 'Internet of Things' },
+];
 
 const formatFileSize = (bytes?: number) => {
   if (!bytes && bytes !== 0) return 'Unknown size';
@@ -42,13 +84,37 @@ export default function UploadNoteScreen() {
   const [desc,  setDesc]        = useState('');
   const [tags,  setTags]        = useState('');
   const [file,  setFile]        = useState<any>(null);
-  const [subject, setSubject]   = useState<any>(null);
-  const [subjects, setSubjects] = useState<any[]>([]);
+  const [subject, setSubject]   = useState<{ code: string; name: string } | null>(null);
+  const [subjectQuery, setSubjectQuery] = useState('');
+  const [otherSubject, setOtherSubject] = useState('');
+  const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading]   = useState(false);
 
-  useEffect(() => {
-    subjectService.getSubjects().then(r => setSubjects(r.data || [])).catch(() => {});
-  }, []);
+  const normalizedQuery = subjectQuery.trim().toLowerCase();
+
+  const exactMatchedSubject = SUBJECT_CATALOG.find((s) => {
+    if (!normalizedQuery) return false;
+    const code = (s.code || '').toLowerCase();
+    const name = (s.name || '').toLowerCase();
+    const combined = `${code} - ${name}`;
+    return normalizedQuery === code || normalizedQuery === name || normalizedQuery === combined;
+  }) || null;
+
+  const allowOtherSubjectInput = !subject && !exactMatchedSubject;
+
+  const filteredExistingSubjects = SUBJECT_CATALOG.filter((s) => {
+    if (!normalizedQuery) return true;
+    const code = (s.code || '').toLowerCase();
+    const name = (s.name || '').toLowerCase();
+    return code.includes(normalizedQuery) || name.includes(normalizedQuery);
+  });
+
+  const selectSubject = (item: { code: string; name: string }) => {
+    setSubject(item);
+    setSubjectQuery(item.name || item.code || '');
+    setOtherSubject('');
+    setSubjectDropdownOpen(false);
+  };
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -86,7 +152,19 @@ export default function UploadNoteScreen() {
   const handleUpload = async () => {
     if (!title.trim()) { Toast.show({ type: 'error', text1: 'Title is required' }); return; }
     if (!file)         { Toast.show({ type: 'error', text1: 'Please select a file' }); return; }
-    if (!subject)      { Toast.show({ type: 'error', text1: 'Please select a subject' }); return; }
+    const noteOnlySubject = otherSubject.trim();
+    if (!allowOtherSubjectInput && noteOnlySubject) {
+      Toast.show({
+        type: 'error',
+        text1: 'Other subject is not allowed',
+        text2: 'This subject already exists in the dropdown. Please select it instead.',
+      });
+      return;
+    }
+    if (!subject && !noteOnlySubject) {
+      Toast.show({ type: 'error', text1: 'Please select a subject or enter a note-only subject' });
+      return;
+    }
     if (!isAllowedNoteFile(file.mimeType, file.name)) {
       Toast.show({
         type: 'error',
@@ -109,7 +187,8 @@ export default function UploadNoteScreen() {
       const formData = new FormData();
       formData.append('title', title.trim());
       formData.append('description', desc.trim());
-      formData.append('subject', subject._id);
+      const selectedSubjectText = subject ? `${subject.code} - ${subject.name}` : '';
+      formData.append('subjectText', selectedSubjectText || noteOnlySubject);
       formData.append('tags', tags.trim());
       formData.append('file', { uri: file.uri, type: file.mimeType || 'application/octet-stream', name: file.name } as any);
 
@@ -137,18 +216,84 @@ export default function UploadNoteScreen() {
         <TextInput style={[styles.input, { height: 90, textAlignVertical: 'top' }]} placeholder="Brief description..." placeholderTextColor={Colors.textMuted} value={desc} onChangeText={setDesc} multiline />
 
         <Text style={styles.label}>Subject *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
-          {subjects.map(s => (
-            <TouchableOpacity
-              key={s._id}
-              style={[styles.subjectChip, subject?._id === s._id && styles.subjectChipActive]}
-              onPress={() => setSubject(s)}
-            >
-              <Text style={[styles.subjectChipText, subject?._id === s._id && { color: Colors.text }]}>{s.code || s.name}</Text>
+        <View style={styles.subjectBox}>
+          <View style={styles.subjectSearchRow}>
+            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+            <TextInput
+              style={styles.subjectSearchInput}
+              placeholder="Search or type subject code/name"
+              placeholderTextColor={Colors.textMuted}
+              value={subjectQuery}
+              onFocus={() => setSubjectDropdownOpen(true)}
+              onChangeText={(text) => {
+                setSubjectQuery(text);
+                setSubjectDropdownOpen(true);
+              }}
+            />
+            <TouchableOpacity onPress={() => setSubjectDropdownOpen((prev) => !prev)}>
+              <Ionicons name={subjectDropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color={Colors.textMuted} />
             </TouchableOpacity>
-          ))}
-          {subjects.length === 0 && <Text style={styles.noSubject}>No subjects yet — create one first.</Text>}
-        </ScrollView>
+          </View>
+
+          {!!subject && (
+            <View style={styles.selectedSubjectRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.selectedSubjectText}>{subject.name || subject.code}</Text>
+                {!!subject.code && !!subject.name && <Text style={styles.selectedSubjectSubText}>{subject.code}</Text>}
+              </View>
+              <TouchableOpacity onPress={() => { setSubject(null); setSubjectQuery(''); }}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {subjectDropdownOpen && (
+            <View style={styles.dropdownList}>
+              <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={styles.dropdownScroll} contentContainerStyle={styles.dropdownScrollContent}>
+                <Text style={styles.dropdownSectionTitle}>Available Subjects</Text>
+                {filteredExistingSubjects.slice(0, 20).map((s) => (
+                  <TouchableOpacity key={s.code} style={styles.dropdownItem} onPress={() => selectSubject(s)}>
+                    <Text style={styles.dropdownItemTitle}>{s.name || s.code}</Text>
+                    {!!s.code && <Text style={styles.dropdownItemSub}>{s.code}</Text>}
+                  </TouchableOpacity>
+                ))}
+                {filteredExistingSubjects.length === 0 && (
+                  <Text style={styles.noSubject}>No existing subjects found.</Text>
+                )}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.label}>Other subject for this note</Text>
+        <TextInput
+          style={[styles.input, !allowOtherSubjectInput && styles.inputDisabled]}
+          placeholder="Type a subject name for this note only"
+          placeholderTextColor={Colors.textMuted}
+          value={otherSubject}
+          editable={allowOtherSubjectInput}
+          onFocus={() => {
+            if (!allowOtherSubjectInput) {
+              Toast.show({
+                type: 'info',
+                text1: 'Select from dropdown',
+                text2: 'You can add another subject only when no matching subject exists.',
+              });
+            }
+          }}
+          onChangeText={(text) => {
+            setOtherSubject(text);
+            if (text.trim()) {
+              setSubject(null);
+              setSubjectQuery(text);
+            }
+          }}
+        />
+        <Text style={styles.fileHint}>
+          {allowOtherSubjectInput
+            ? 'Use this only if the subject is not in the dropdown. It will stay with this note only.'
+            : 'This subject already exists in the dropdown. Please select it from search.'}
+        </Text>
 
         <Text style={styles.label}>Tags (comma separated)</Text>
         <TextInput style={styles.input} placeholder="e.g. java, oop, midterm" placeholderTextColor={Colors.textMuted} value={tags} onChangeText={setTags} />
@@ -172,6 +317,7 @@ export default function UploadNoteScreen() {
           </>}
         </TouchableOpacity>
       </View>
+
     </ScrollView>
   );
 }
@@ -183,9 +329,29 @@ const styles = StyleSheet.create({
   form:            { padding: Spacing.md },
   label:           { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 6, marginTop: Spacing.sm },
   input:           { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, color: Colors.text, fontSize: FontSizes.md, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.sm },
-  subjectChip:     { backgroundColor: Colors.surface, borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: Colors.border },
-  subjectChipActive:{ backgroundColor: Colors.primary, borderColor: Colors.primary },
-  subjectChipText: { color: Colors.textMuted, fontWeight: '600', fontSize: FontSizes.sm },
+  inputDisabled:   { opacity: 0.6 },
+  subjectBox:      { marginBottom: Spacing.md },
+  subjectSearchRow:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.sm,
+    gap: 6,
+  },
+  subjectSearchInput: { flex: 1, color: Colors.text, fontSize: FontSizes.md, paddingVertical: Spacing.sm },
+  selectedSubjectRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.xs, backgroundColor: Colors.surfaceAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
+  selectedSubjectText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '600' },
+  selectedSubjectSubText: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 2 },
+  dropdownList: { marginTop: Spacing.xs, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: 0, maxHeight: 340, overflow: 'hidden' },
+  dropdownScroll: { maxHeight: 340 },
+  dropdownScrollContent: { padding: Spacing.sm },
+  dropdownSectionTitle: { color: Colors.textMuted, fontSize: FontSizes.xs, fontWeight: '700', marginBottom: 6 },
+  dropdownItem: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, marginBottom: 6, backgroundColor: Colors.surfaceAlt },
+  dropdownItemTitle: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '600' },
+  dropdownItemSub: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 2 },
   noSubject:       { color: Colors.textMuted, fontSize: FontSizes.sm, padding: 8 },
   filePicker:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', gap: 10, marginBottom: Spacing.lg },
   filePickerText:  { color: Colors.textMuted, flex: 1, fontSize: FontSizes.sm },

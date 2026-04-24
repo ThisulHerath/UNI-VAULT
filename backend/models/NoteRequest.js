@@ -32,6 +32,20 @@ const noteRequestSchema = new mongoose.Schema(
       enum: ['open', 'fulfilled', 'closed'],
       default: 'open',
     },
+    closedReason: {
+      type: String,
+      // Reason the request was closed; null means it is still open or fulfilled.
+      default: null,
+    },
+    closedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    closedAt: {
+      type: Date,
+      default: null,
+    },
     // Optional: link to a Note that fulfilled this request
     fulfilledByNote: {
       type: mongoose.Schema.Types.ObjectId,

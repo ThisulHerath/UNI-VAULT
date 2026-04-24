@@ -34,6 +34,8 @@ const REPORT_REASONS = [
 
 type ReportReason = (typeof REPORT_REASONS)[number]['value'];
 
+const getNoteSubjectLabel = (noteItem: any) => noteItem?.subject?.name || noteItem?.subjectText || 'No Subject';
+
 const ratingRanges: Record<string, { minRating?: number; maxRating?: number }> = {
   all: {},
   '4plus': { minRating: 4, maxRating: 5 },
@@ -72,6 +74,8 @@ export default function NoteDetailScreen() {
   const [ratingFilter, setRatingFilter] = useState<(typeof REVIEW_FILTERS)[number]['key']>('all');
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportTargetReviewId, setReportTargetReviewId] = useState<string | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletingNote, setDeletingNote] = useState(false);
 
   useEffect(() => {
     const loadPrefs = async () => {
@@ -130,13 +134,21 @@ export default function NoteDetailScreen() {
   }, [id, user?._id, prefsLoaded, sortBy, ratingFilter]);
 
   const handleDelete = () => {
-    Alert.alert('Delete Note', 'Are you sure? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await noteService.deleteNote(id); Toast.show({ type: 'success', text1: 'Deleted' }); router.back(); }
-        catch (e: any) { Toast.show({ type: 'error', text1: 'Error', text2: e.message }); }
-      }},
-    ]);
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDeleteNote = async () => {
+    try {
+      setDeletingNote(true);
+      await noteService.deleteNote(id);
+      setDeleteModalVisible(false);
+      Toast.show({ type: 'success', text1: 'Note deleted' });
+      router.back();
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Delete failed', text2: e.message });
+    } finally {
+      setDeletingNote(false);
+    }
   };
 
   const submitReview = async () => {
@@ -301,7 +313,7 @@ export default function NoteDetailScreen() {
           <Ionicons name="person-outline" size={13} color={Colors.textMuted} />
           <Text style={styles.meta}>{note.uploadedBy?.name}</Text>
           <Ionicons name="library-outline" size={13} color={Colors.textMuted} style={{ marginLeft: 12 }} />
-          <Text style={styles.meta}>{note.subject?.name}</Text>
+          <Text style={styles.meta}>{getNoteSubjectLabel(note)}</Text>
         </View>
         <View style={styles.metaRow}>
           <Ionicons name="star" size={13} color={Colors.star} />
@@ -486,6 +498,40 @@ export default function NoteDetailScreen() {
       ))}
 
       <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete Note</Text>
+            <Text style={styles.modalSubtitle}>Are you sure? This cannot be undone.</Text>
+
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity
+                style={styles.deleteModalCancelBtn}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={deletingNote}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.deleteModalDeleteBtn, deletingNote && { opacity: 0.7 }]}
+                onPress={confirmDeleteNote}
+                disabled={deletingNote}
+              >
+                {deletingNote
+                  ? <ActivityIndicator size="small" color={Colors.text} />
+                  : <Text style={styles.deleteModalDeleteText}>Delete</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={reportModalVisible}
         transparent
         animationType="fade"
@@ -606,4 +652,9 @@ const styles = StyleSheet.create({
   modalReasonText: { fontSize: FontSizes.sm, color: Colors.text, fontWeight: '600' },
   modalCancelBtn: { marginTop: Spacing.md, alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 10 },
   modalCancelText: { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '700' },
+  deleteModalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.md, gap: Spacing.sm },
+  deleteModalCancelBtn: { backgroundColor: Colors.surfaceAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: 10 },
+  deleteModalCancelText: { color: Colors.textMuted, fontWeight: '700', fontSize: FontSizes.sm },
+  deleteModalDeleteBtn: { minWidth: 100, backgroundColor: Colors.error, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  deleteModalDeleteText: { color: Colors.text, fontWeight: '700', fontSize: FontSizes.sm },
 });

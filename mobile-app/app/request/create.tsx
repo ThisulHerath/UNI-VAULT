@@ -11,9 +11,25 @@ export default function CreateRequestScreen() {
   const [desc, setDesc]       = useState('');
   const [subject, setSubject] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [subjectQuery, setSubjectQuery] = useState('');
+  const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { subjectService.getSubjects().then(r => setSubjects(r.data || [])).catch(() => {}); }, []);
+
+  const normalizedQuery = subjectQuery.trim().toLowerCase();
+  const filteredSubjects = subjects.filter((s) => {
+    if (!normalizedQuery) return true;
+    const code = (s.code || '').toLowerCase();
+    const name = (s.name || '').toLowerCase();
+    return code.includes(normalizedQuery) || name.includes(normalizedQuery);
+  });
+
+  const selectSubject = (item: any) => {
+    setSubject(item);
+    setSubjectQuery(item.name || item.code || '');
+    setSubjectDropdownOpen(false);
+  };
 
   const handleCreate = async () => {
     if (!title.trim()) { Toast.show({ type: 'error', text1: 'Title is required' }); return; }
@@ -43,13 +59,59 @@ export default function CreateRequestScreen() {
         <TextInput style={[styles.input, { height: 90, textAlignVertical: 'top' }]} placeholder="Any extra details..." placeholderTextColor={Colors.textMuted} value={desc} onChangeText={setDesc} multiline />
 
         <Text style={styles.label}>Subject (optional)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
-          {subjects.map(s => (
-            <TouchableOpacity key={s._id} style={[styles.chip, subject?._id === s._id && styles.chipActive]} onPress={() => setSubject(subject?._id === s._id ? null : s)}>
-              <Text style={[styles.chipText, subject?._id === s._id && { color: Colors.text }]}>{s.code || s.name}</Text>
+        <View style={styles.subjectBox}>
+          <View style={styles.subjectSearchRow}>
+            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+            <TextInput
+              style={styles.subjectSearchInput}
+              placeholder="Search subject code/name"
+              placeholderTextColor={Colors.textMuted}
+              value={subjectQuery}
+              onFocus={() => setSubjectDropdownOpen(true)}
+              onChangeText={(text) => {
+                setSubjectQuery(text);
+                setSubjectDropdownOpen(true);
+              }}
+            />
+            <TouchableOpacity onPress={() => setSubjectDropdownOpen((prev) => !prev)}>
+              <Ionicons name={subjectDropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color={Colors.textMuted} />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          </View>
+
+          {!!subject && (
+            <View style={styles.selectedSubjectRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.selectedSubjectText}>{subject.name || subject.code}</Text>
+                {!!subject.code && !!subject.name && <Text style={styles.selectedSubjectSubText}>{subject.code}</Text>}
+              </View>
+              <TouchableOpacity onPress={() => { setSubject(null); setSubjectQuery(''); }}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {subjectDropdownOpen && (
+            <View style={styles.dropdownList}>
+              <ScrollView
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                style={styles.dropdownScroll}
+                contentContainerStyle={styles.dropdownScrollContent}
+              >
+                <Text style={styles.dropdownSectionTitle}>Available Subjects</Text>
+                {filteredSubjects.slice(0, 20).map((s) => (
+                  <TouchableOpacity key={s._id} style={styles.dropdownItem} onPress={() => selectSubject(s)}>
+                    <Text style={styles.dropdownItemTitle}>{s.name || s.code}</Text>
+                    {!!s.code && <Text style={styles.dropdownItemSub}>{s.code}</Text>}
+                  </TouchableOpacity>
+                ))}
+                {filteredSubjects.length === 0 && (
+                  <Text style={styles.noSubject}>No subjects found.</Text>
+                )}
+              </ScrollView>
+            </View>
+          )}
+        </View>
 
         <TouchableOpacity style={[styles.btn, loading && { opacity: 0.65 }]} onPress={handleCreate} disabled={loading}>
           {loading ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.btnText}>Post Request</Text>}
@@ -66,9 +128,29 @@ const styles = StyleSheet.create({
   form:      { padding: Spacing.md },
   label:     { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 6, marginTop: Spacing.sm },
   input:     { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, color: Colors.text, fontSize: FontSizes.md, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.sm },
-  chip:      { backgroundColor: Colors.surface, borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: Colors.border },
-  chipActive:{ backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText:  { color: Colors.textMuted, fontWeight: '600', fontSize: FontSizes.sm },
+  subjectBox:      { marginBottom: Spacing.md },
+  subjectSearchRow:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.sm,
+    gap: 6,
+  },
+  subjectSearchInput: { flex: 1, color: Colors.text, fontSize: FontSizes.md, paddingVertical: Spacing.sm },
+  selectedSubjectRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.xs, backgroundColor: Colors.surfaceAlt, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
+  selectedSubjectText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '600' },
+  selectedSubjectSubText: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 2 },
+  dropdownList: { marginTop: Spacing.xs, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: 0, maxHeight: 340, overflow: 'hidden' },
+  dropdownScroll: { maxHeight: 340 },
+  dropdownScrollContent: { padding: Spacing.sm },
+  dropdownSectionTitle: { color: Colors.textMuted, fontSize: FontSizes.xs, fontWeight: '700', marginBottom: 6 },
+  dropdownItem: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, marginBottom: 6, backgroundColor: Colors.surfaceAlt },
+  dropdownItemTitle: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '600' },
+  dropdownItemSub: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 2 },
+  noSubject:       { color: Colors.textMuted, fontSize: FontSizes.sm, padding: 8 },
   btn:       { backgroundColor: Colors.primary, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', marginTop: Spacing.sm },
   btnText:   { color: Colors.text, fontWeight: '700', fontSize: FontSizes.md },
 });

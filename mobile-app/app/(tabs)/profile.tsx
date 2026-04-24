@@ -1,37 +1,52 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Image, Modal,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
-import { noteService } from '../../services/dataServices';
+import { noteService, requestService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
 export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuth();
   const [myNotes, setMyNotes]   = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [meRes, notesRes] = await Promise.all([
-          authService.getMe(),
-          noteService.getMyNotes({ limit: 5 }),
-        ]);
-        updateUser(meRes.data);
-        setMyNotes(notesRes.data || []);
-      } catch (e) {
-        console.warn(e);
-      } finally { setLoading(false); }
-    };
-    load();
-  }, []);
+  const load = async (showLoader = false) => {
+    try {
+      if (showLoader) setLoading(true);
+      const [meRes, notesRes] = await Promise.all([
+        authService.getMe(),
+        noteService.getMyNotes({ limit: 5 }),
+      ]);
+      updateUser(meRes.data);
+      setMyNotes(notesRes.data || []);
+
+      const requestsRes = await requestService.getRequests({ requestedBy: meRes.data?._id, limit: 5 });
+      setMyRequests(requestsRes.data || []);
+    } catch (e) {
+      console.warn(e);
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (loading) {
+        load(true);
+      } else {
+        load(false);
+      }
+    }, [loading])
+  );
 
   const handleLogout = () => {
     setShowSignOutModal(true);
@@ -121,6 +136,29 @@ export default function ProfileScreen() {
         <Text style={styles.seeAll}>See all my notes →</Text>
       </TouchableOpacity>
 
+      {/* My recent requests */}
+      <Text style={styles.section}>My Requests</Text>
+      {myRequests.length === 0
+        ? <Text style={styles.empty}>You haven&apos;t posted any requests yet.</Text>
+        : myRequests.map(r => (
+            <TouchableOpacity key={r._id} style={styles.requestCard} onPress={() => router.push(`/request/${r._id}`)}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.requestTitle} numberOfLines={1}>{r.title}</Text>
+                <Text style={styles.requestMeta} numberOfLines={1}>{r.description || 'No details provided'}</Text>
+                {r.status === 'closed' && r.closedReason && (
+                  <Text style={styles.requestMeta}>Closed as {r.closedReason}</Text>
+                )}
+              </View>
+              <View style={[styles.requestStatus, r.status === 'open' ? styles.statusOpen : r.status === 'fulfilled' ? styles.statusFulfilled : styles.statusClosed]}>
+                <Text style={styles.requestStatusText}>{r.status === 'closed' && r.closedReason ? r.closedReason : r.status}</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+      }
+      <TouchableOpacity onPress={() => router.push('/(tabs)/requests')}>
+        <Text style={styles.seeAll}>See all my requests →</Text>
+      </TouchableOpacity>
+
       {/* Menu */}
       <Text style={styles.section}>Account</Text>
       <MenuItem icon="person-outline"        label="Edit Profile"      onPress={() => router.push('/profile/edit')} />
@@ -198,6 +236,14 @@ const styles = StyleSheet.create({
   noteCard:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   noteTitle:        { flex: 1, fontSize: FontSizes.md, color: Colors.text },
   seeAll:           { color: Colors.primary, textAlign: 'center', marginBottom: Spacing.sm, fontWeight: '600' },
+  requestCard:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  requestTitle:     { fontSize: FontSizes.md, color: Colors.text, fontWeight: '600' },
+  requestMeta:      { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2, marginRight: Spacing.sm },
+  requestStatus:    { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  statusOpen:       { backgroundColor: Colors.success + '22' },
+  statusFulfilled:   { backgroundColor: Colors.primary + '22' },
+  statusClosed:     { backgroundColor: Colors.textMuted + '22' },
+  requestStatusText:{ fontSize: FontSizes.xs, fontWeight: '700', color: Colors.text, textTransform: 'capitalize' },
   menu:             { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   menuIcon:         { width: 34, height: 34, borderRadius: Radius.sm, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
   menuLabel:        { flex: 1, fontSize: FontSizes.md, color: Colors.text, fontWeight: '500' },

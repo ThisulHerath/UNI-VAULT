@@ -34,10 +34,6 @@ export default function TabsLayout() {
         options={{ title: 'Notes', tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} /> }}
       />
       <Tabs.Screen
-        name="subjects"
-        options={{ title: 'Subjects', tabBarIcon: ({ color, size }) => <Ionicons name="library-outline" size={size} color={color} /> }}
-      />
-      <Tabs.Screen
         name="requests"
         options={{ title: 'Requests', tabBarIcon: ({ color, size }) => <Ionicons name="help-circle-outline" size={size} color={color} /> }}
       />
@@ -48,6 +44,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} /> }}
+      />
+      <Tabs.Screen
+        name="subjects"
+        options={{ href: null }}
       />
     </Tabs>
   );

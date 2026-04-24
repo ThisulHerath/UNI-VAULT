@@ -9,6 +9,8 @@ import Toast from 'react-native-toast-message';
 import { noteService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
+const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
+
 export default function NotesScreen() {
   const [notes, setNotes]         = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -50,7 +52,7 @@ export default function NotesScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
           <Text style={styles.cardMeta} numberOfLines={1}>
-            {item.subject?.name || 'No Subject'} · {item.uploadedBy?.name || 'Unknown'}
+            {getNoteSubjectLabel(item)} · {item.uploadedBy?.name || 'Unknown'}
           </Text>
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={12} color={Colors.star} />

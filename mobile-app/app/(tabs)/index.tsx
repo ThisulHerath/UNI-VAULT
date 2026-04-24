@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { noteService, requestService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
+const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
@@ -42,7 +44,7 @@ export default function HomeScreen() {
       <View style={styles.noteIcon}><Ionicons name="document-text" size={20} color={Colors.primary} /></View>
       <View style={{ flex: 1 }}>
         <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.noteMeta}>{item.subject?.name || 'No Subject'} • ⭐ {item.averageRating?.toFixed(1) || '0.0'}</Text>
+        <Text style={styles.noteMeta}>{getNoteSubjectLabel(item)} • ⭐ {item.averageRating?.toFixed(1) || '0.0'}</Text>
       </View>
     </TouchableOpacity>
   );
