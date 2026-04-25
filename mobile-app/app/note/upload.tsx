@@ -19,6 +19,7 @@ const ALLOWED_NOTE_MIME_TYPES = new Set([
   'image/png',
   'image/gif',
   'image/webp',
+  'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
@@ -91,7 +92,7 @@ export default function UploadNoteScreen() {
       Toast.show({
         type: 'error',
         text1: 'Unsupported file type',
-        text2: 'Only PDF, DOCX, JPG, PNG, GIF, and WEBP files are allowed.',
+        text2: 'Only PDF, Word documents, JPG, PNG, GIF, and WEBP files are allowed.',
       });
       return;
     }
@@ -128,7 +129,7 @@ export default function UploadNoteScreen() {
       Toast.show({
         type: 'error',
         text1: 'Unsupported file type',
-        text2: 'Only PDF, DOCX, JPG, PNG, GIF, and WEBP files are allowed.',
+        text2: 'Only PDF, Word documents, JPG, PNG, GIF, and WEBP files are allowed.',
       });
       return;
     }
@@ -265,7 +266,7 @@ export default function UploadNoteScreen() {
           </Text>
         </TouchableOpacity>
         <Text style={styles.fileHint}>
-          PDF, DOCX, and images only. Max {MAX_NOTE_FILE_SIZE_MB} MB.
+          PDF, Word docs, and images only. Max {MAX_NOTE_FILE_SIZE_MB} MB.
           {file ? ` Selected: ${formatFileSize(file.size)}.` : ''}
         </Text>
 

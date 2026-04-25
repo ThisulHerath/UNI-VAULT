@@ -11,6 +11,7 @@ const ALLOWED_NOTE_MIME_TYPES = new Set([
   'image/png',
   'image/gif',
   'image/webp',
+  'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
@@ -38,6 +39,7 @@ const normalizeObjectId = (value) => {
 const resolveNoteFileType = (mimeType = '') => {
   if (mimeType === 'application/pdf') return 'pdf';
   if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType === 'application/msword') return 'doc';
   if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
   return 'other';
 };

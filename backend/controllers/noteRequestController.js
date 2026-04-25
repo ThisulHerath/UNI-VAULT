@@ -1,6 +1,34 @@
 const NoteRequest = require('../models/NoteRequest');
 const Note = require('../models/Note');
 const { setNoteFileUrl } = require('../utils/noteFiles');
+const mongoose = require('mongoose');
+const {
+  deleteRequestFileFromGridFs,
+  getRequestBucket,
+  isAllowedRequestMimeType,
+  REQUEST_MAX_FILE_SIZE_BYTES,
+  setRequestFulfillmentFileUrl,
+  uploadRequestFileToGridFs,
+} = require('../utils/requestFiles');
+
+const resolveEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value._id) return value._id.toString();
+  return value.toString();
+};
+
+const canViewFulfillment = (request, req) => {
+  if (!request?.fulfillment) return false;
+  if (request.fulfillment.isPublic) return true;
+  if (!req?.user) return false;
+
+  const viewerId = resolveEntityId(req.user._id || req.user);
+  return [
+    resolveEntityId(request.requestedBy),
+    resolveEntityId(request.fulfillment.uploadedBy),
+  ].includes(viewerId) || req.user.role === 'admin';
+};
 
 const applyClosedState = (request, req, reason) => {
   request.status = 'closed';
@@ -13,9 +41,17 @@ const populateRequest = async (request, req) => {
   await request.populate('requestedBy', 'name avatar');
   await request.populate('subject', 'name code');
   await request.populate('fulfilledByNote', 'title fileUrl');
+  await request.populate('fulfillment.uploadedBy', 'name avatar');
   await request.populate('closedBy', 'name avatar');
 
   const plainRequest = request.toObject();
+  if (plainRequest.fulfillment) {
+    if (canViewFulfillment(plainRequest, req)) {
+      setRequestFulfillmentFileUrl(plainRequest, req);
+    } else {
+      delete plainRequest.fulfillment;
+    }
+  }
   plainRequest.fulfilledByNote = setNoteFileUrl(plainRequest.fulfilledByNote, req);
   return plainRequest;
 };
@@ -61,6 +97,7 @@ exports.getRequests = async (req, res, next) => {
         .populate('requestedBy', 'name avatar')
         .populate('subject', 'name code')
         .populate('fulfilledByNote', 'title fileUrl')
+        .populate('fulfillment.uploadedBy', 'name avatar')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -92,7 +129,8 @@ exports.getRequestById = async (req, res, next) => {
     const request = await NoteRequest.findById(req.params.id)
       .populate('requestedBy', 'name avatar')
       .populate('subject', 'name code')
-      .populate('fulfilledByNote', 'title fileUrl');
+      .populate('fulfilledByNote', 'title fileUrl')
+      .populate('fulfillment.uploadedBy', 'name avatar');
 
     if (!request) {
       return res.status(404).json({ success: false, message: 'Request not found.' });
@@ -148,6 +186,8 @@ exports.updateRequest = async (req, res, next) => {
 // ─── @route  POST /api/requests/:id/fulfill ─────────────────────────────────
 // ─── @access Private (non-owner only)
 exports.fulfillRequest = async (req, res, next) => {
+  let uploadedFileId = null;
+
   try {
     const request = await NoteRequest.findById(req.params.id);
     if (!request) {
@@ -166,8 +206,41 @@ exports.fulfillRequest = async (req, res, next) => {
     }
 
     const { noteId } = req.body;
+    const fulfillmentDescription = typeof req.body.description === 'string'
+      ? req.body.description.trim()
+      : '';
 
-    if (noteId) {
+    if (req.file) {
+      if (!isAllowedRequestMimeType(req.file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid file type. Allowed: PDF, JPG, PNG, GIF, WebP, DOCX.',
+        });
+      }
+
+      if (!req.file.size || req.file.size > REQUEST_MAX_FILE_SIZE_BYTES) {
+        return res.status(400).json({
+          success: false,
+          message: 'File size cannot exceed 15 MB.',
+        });
+      }
+
+      const uploadResult = await uploadRequestFileToGridFs(req.file, request._id);
+      uploadedFileId = uploadResult.fileId;
+
+      request.fulfillment = {
+        fileId: uploadResult.fileId,
+        fileName: uploadResult.fileName,
+        fileMimeType: uploadResult.fileMimeType,
+        fileSize: uploadResult.fileSize,
+        fileType: uploadResult.fileType,
+        description: fulfillmentDescription || null,
+        isPublic: false,
+        uploadedBy: req.user._id,
+        uploadedAt: new Date(),
+      };
+      request.fulfilledByNote = null;
+    } else if (noteId) {
       const note = await Note.findById(noteId).select('uploadedBy');
       if (!note) {
         return res.status(404).json({ success: false, message: 'Note not found.' });
@@ -181,6 +254,12 @@ exports.fulfillRequest = async (req, res, next) => {
       }
 
       request.fulfilledByNote = note._id;
+      request.fulfillment = null;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a file or provide a note to fulfill this request.',
+      });
     }
 
     request.status = 'fulfilled';
@@ -189,11 +268,87 @@ exports.fulfillRequest = async (req, res, next) => {
     await request.populate('requestedBy', 'name avatar');
     await request.populate('subject', 'name code');
     await request.populate('fulfilledByNote', 'title fileUrl');
+    await request.populate('fulfillment.uploadedBy', 'name avatar');
 
     const plainRequest = request.toObject();
+    if (plainRequest.fulfillment) {
+      setRequestFulfillmentFileUrl(plainRequest, req);
+    }
     plainRequest.fulfilledByNote = setNoteFileUrl(plainRequest.fulfilledByNote, req);
 
     res.status(200).json({ success: true, data: plainRequest });
+  } catch (error) {
+    if (uploadedFileId) {
+      try {
+        await deleteRequestFileFromGridFs(uploadedFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures; the main error should be surfaced.
+      }
+    }
+    next(error);
+  }
+};
+
+// ─── @route  PUT /api/requests/:id/fulfillment/visibility ────────────────────
+// ─── @access Private (owner only)
+exports.updateFulfillmentVisibility = async (req, res, next) => {
+  try {
+    const request = await NoteRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found.' });
+    }
+
+    if (request.requestedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorised to update this request.' });
+    }
+
+    if (request.status !== 'fulfilled' || !request.fulfillment) {
+      return res.status(400).json({ success: false, message: 'Only fulfilled requests with an attachment can be made public.' });
+    }
+
+    request.fulfillment.isPublic = req.body.isPublic === true || req.body.isPublic === 'true';
+    await request.save();
+
+    res.status(200).json({ success: true, data: await populateRequest(request, req) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  GET /api/requests/:id/file ──────────────────────────────────────
+// ─── @access Public (private for requester and fulfiller)
+exports.getRequestFile = async (req, res, next) => {
+  try {
+    const request = await NoteRequest.findById(req.params.id)
+      .populate('requestedBy', 'name avatar')
+      .populate('fulfillment.uploadedBy', 'name avatar');
+
+    if (!request || !request.fulfillment?.fileId) {
+      return res.status(404).json({ success: false, message: 'Fulfillment file not found.' });
+    }
+
+    if (!canViewFulfillment(request.toObject(), req)) {
+      return res.status(403).json({ success: false, message: 'Not authorised to view this file.' });
+    }
+
+    const bucket = getRequestBucket();
+    const fileId = request.fulfillment.fileId instanceof mongoose.Types.ObjectId
+      ? request.fulfillment.fileId
+      : new mongoose.Types.ObjectId(request.fulfillment.fileId);
+
+    const files = await bucket.find({ _id: fileId }).toArray();
+    if (!files.length) {
+      return res.status(404).json({ success: false, message: 'File not found.' });
+    }
+
+    const file = files[0];
+    res.setHeader('Content-Type', file.contentType || request.fulfillment.fileMimeType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${(request.fulfillment.fileName || file.filename || 'request-file').replace(/"/g, '\\"')}"`
+    );
+
+    return bucket.openDownloadStream(fileId).on('error', next).pipe(res);
   } catch (error) {
     next(error);
   }

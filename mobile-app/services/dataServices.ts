@@ -114,8 +114,10 @@ export const requestService = {
     const res = await api.post(`/requests/${id}/reopen`);
     return res.data;
   },
-  fulfillRequest: async (id: string, data?: { noteId?: string }) => {
-    const res = await api.post(`/requests/${id}/fulfill`, data || {});
+  fulfillRequest: async (id: string, data?: FormData | { noteId?: string }) => {
+    const res = await api.post(`/requests/${id}/fulfill`, data || {}, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return res.data;
   },
   deleteRequest: async (id: string) => {

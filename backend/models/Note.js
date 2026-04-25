@@ -27,7 +27,7 @@ const noteSchema = new mongoose.Schema(
     },
     fileType: {
       type: String,
-      enum: ['pdf', 'image', 'docx', 'other'],
+      enum: ['pdf', 'image', 'doc', 'docx', 'other'],
       default: 'other',
     },
     fileMimeType: {

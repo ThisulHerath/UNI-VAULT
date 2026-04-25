@@ -1,19 +1,27 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const extractToken = (req) => {
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer ')
+  ) {
+    return req.headers.authorization.split(' ')[1];
+  }
+
+  if (typeof req.query?.token === 'string' && req.query.token.trim()) {
+    return req.query.token.trim();
+  }
+
+  return null;
+};
+
 // -------------------------------------------
 // protect  — verifies the JWT and attaches the
 //            authenticated user to req.user
 // -------------------------------------------
 exports.protect = async (req, res, next) => {
-  let token;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer ')
-  ) {
-    token = req.headers.authorization.split(' ')[1];
-  }
+  const token = extractToken(req);
 
   if (!token) {
     return res.status(401).json({
@@ -48,6 +56,31 @@ exports.protect = async (req, res, next) => {
       message: 'Not authorised — token invalid.',
     });
   }
+};
+
+// -------------------------------------------
+// optionalAuth  — attaches req.user when a
+// token exists, but allows anonymous access.
+// -------------------------------------------
+exports.optionalAuth = async (req, res, next) => {
+  const token = extractToken(req);
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (user && user.isActive) {
+      req.user = user;
+    }
+  } catch (error) {
+    // Ignore invalid tokens for public routes.
+  }
+
+  next();
 };
 
 // -------------------------------------------

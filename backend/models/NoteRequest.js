@@ -1,5 +1,52 @@
 const mongoose = require('mongoose');
 
+const requestFulfillmentSchema = new mongoose.Schema(
+  {
+    fileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+    fileName: {
+      type: String,
+      default: null,
+    },
+    fileMimeType: {
+      type: String,
+      default: null,
+    },
+    fileSize: {
+      type: Number,
+      default: null,
+    },
+    fileType: {
+      type: String,
+      enum: ['pdf', 'image', 'doc', 'docx', 'other'],
+      default: 'other',
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Fulfillment description cannot exceed 300 characters'],
+      default: null,
+    },
+    isPublic: {
+      type: Boolean,
+      default: false,
+    },
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    uploadedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 const noteRequestSchema = new mongoose.Schema(
   {
     title: {
@@ -50,6 +97,10 @@ const noteRequestSchema = new mongoose.Schema(
     fulfilledByNote: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Note',
+      default: null,
+    },
+    fulfillment: {
+      type: requestFulfillmentSchema,
       default: null,
     },
   },

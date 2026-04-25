@@ -56,7 +56,7 @@ const fileFilter = {
     if (isAllowedNoteMimeType(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Invalid file type: ${file.mimetype}. Allowed: PDF, JPG, PNG, GIF, WebP, DOCX`));
+      cb(new Error(`Invalid file type: ${file.mimetype}. Allowed: PDF, JPG, PNG, GIF, WebP, DOC, DOCX`));
     }
   },
   avatar: (req, file, cb) => {
@@ -75,3 +75,4 @@ const limits = { fileSize: NOTE_MAX_FILE_SIZE_BYTES };
 exports.uploadNote   = multer({ storage: noteStorage,   fileFilter: fileFilter.note,   limits });
 exports.uploadAvatar = multer({ storage: avatarStorage, fileFilter: fileFilter.avatar, limits });
 exports.uploadCover  = multer({ storage: coverStorage,  fileFilter: fileFilter.cover,  limits });
+exports.uploadRequestAttachment = multer({ storage: noteStorage, fileFilter: fileFilter.note, limits });
