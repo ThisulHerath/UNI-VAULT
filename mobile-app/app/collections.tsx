@@ -232,6 +232,7 @@ export default function CollectionsScreen() {
             <>
               <TouchableOpacity
                 style={styles.exploreBanner}
+                accessibilityHint="Navigates to the public collections explorer"
                 onPress={() => router.push('/public-collections')}
               >
                 <View style={styles.exploreBannerContent}>
