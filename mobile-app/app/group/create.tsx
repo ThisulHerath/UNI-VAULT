@@ -12,6 +12,8 @@ export default function CreateGroupScreen() {
   const [desc, setDesc]       = useState('');
   const [batch, setBatch]     = useState('');
   const [isPrivate, setPrivate] = useState(false);
+  const [joinMode, setJoinMode] = useState<'open' | 'request'>('open');
+  const [inviteCode, setInviteCode] = useState('');
   const [cover, setCover]     = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -29,6 +31,10 @@ export default function CreateGroupScreen() {
       formData.append('description', desc.trim());
       formData.append('batch', batch.trim());
       formData.append('privacy', isPrivate ? 'private' : 'public');
+      formData.append('joinMode', joinMode);
+      if (isPrivate && inviteCode.trim()) {
+        formData.append('invitationCode', inviteCode.trim().toUpperCase());
+      }
       if (cover) formData.append('coverImage', { uri: cover.uri, type: 'image/jpeg', name: 'cover.jpg' } as any);
 
       await groupService.createGroup(formData);
@@ -65,10 +71,34 @@ export default function CreateGroupScreen() {
         <View style={styles.switchRow}>
           <View>
             <Text style={styles.switchLabel}>Private Group</Text>
-            <Text style={styles.switchDesc}>Members must be approved</Text>
+            <Text style={styles.switchDesc}>Only invitation code holders can join</Text>
           </View>
           <Switch value={isPrivate} onValueChange={setPrivate} trackColor={{ true: Colors.primary }} thumbColor={Colors.text} />
         </View>
+
+        {!isPrivate && (
+          <View style={styles.switchRow}>
+            <View>
+              <Text style={styles.switchLabel}>Request-Based Join</Text>
+              <Text style={styles.switchDesc}>If on, users must be approved by an admin</Text>
+            </View>
+            <Switch value={joinMode === 'request'} onValueChange={(value) => setJoinMode(value ? 'request' : 'open')} trackColor={{ true: Colors.primary }} thumbColor={Colors.text} />
+          </View>
+        )}
+
+        {isPrivate && (
+          <>
+            <Text style={styles.label}>Custom Invitation Code (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Leave empty to auto-generate"
+              placeholderTextColor={Colors.textMuted}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              autoCapitalize="characters"
+            />
+          </>
+        )}
 
         <TouchableOpacity style={[styles.btn, loading && { opacity: 0.65 }]} onPress={handleCreate} disabled={loading}>
           {loading ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.btnText}>Create Group</Text>}

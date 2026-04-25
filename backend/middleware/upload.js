@@ -76,3 +76,4 @@ exports.uploadNote   = multer({ storage: noteStorage,   fileFilter: fileFilter.n
 exports.uploadAvatar = multer({ storage: avatarStorage, fileFilter: fileFilter.avatar, limits });
 exports.uploadCover  = multer({ storage: coverStorage,  fileFilter: fileFilter.cover,  limits });
 exports.uploadRequestAttachment = multer({ storage: noteStorage, fileFilter: fileFilter.note, limits });
+exports.uploadGroupMessageAttachment = multer({ storage: noteStorage, fileFilter: fileFilter.note, limits });

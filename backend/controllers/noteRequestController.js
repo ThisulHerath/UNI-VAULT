@@ -60,12 +60,15 @@ const populateRequest = async (request, req) => {
 // ─── @access Private
 exports.createRequest = async (req, res, next) => {
   try {
-    const { title, description, subject } = req.body;
+    const { title, description, subject, subjectLabel } = req.body;
 
     const request = await NoteRequest.create({
       title,
       description,
       subject: subject || null,
+      subjectLabel: typeof subjectLabel === 'string' && subjectLabel.trim()
+        ? subjectLabel.trim()
+        : null,
       requestedBy: req.user._id,
     });
 
@@ -430,6 +433,12 @@ exports.deleteRequest = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this request.' });
     }
 
+    if (request.fulfillment?.fileId) {
+      await deleteRequestFileFromGridFs(request.fulfillment.fileId);
+    }
+
+    request.fulfillment = null;
+    request.fulfilledByNote = null;
     applyClosedState(request, req, 'deleted');
     await request.save();
 

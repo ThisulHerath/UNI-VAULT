@@ -16,14 +16,19 @@ export default function CreateRequestScreen() {
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const normalizeSubjectKey = (value?: string) => (value || '').trim().toLowerCase().replace(/\s+/g, '');
+
   useEffect(() => { 
     subjectService
       .getSubjects()
       .then((r) => {
         const subjectMap: Record<string, string> = {};
         (r.data || []).forEach((item: any) => {
-          if (item?.code && item?._id) {
-            subjectMap[item.code] = item._id;
+          if (item?._id) {
+            const codeKey = normalizeSubjectKey(item.code);
+            const nameKey = normalizeSubjectKey(item.name);
+            if (codeKey) subjectMap[codeKey] = item._id;
+            if (nameKey) subjectMap[nameKey] = item._id;
           }
         });
         setSubjectIdByCode(subjectMap);
@@ -55,11 +60,16 @@ export default function CreateRequestScreen() {
     if (!title.trim()) { Toast.show({ type: 'error', text1: 'Title is required' }); return; }
     setLoading(true);
     try {
-      const selectedSubjectId = subject?.code ? subjectIdByCode[subject.code] : undefined;
+      const selectedSubjectId = subject
+        ? subjectIdByCode[normalizeSubjectKey(subject.code)] || subjectIdByCode[normalizeSubjectKey(subject.name)]
+        : undefined;
+      const selectedSubjectLabel = subject?.name || subject?.code || undefined;
+
       await requestService.createRequest({
         title: title.trim(),
         description: desc.trim(),
         subject: selectedSubjectId || undefined,
+        subjectLabel: selectedSubjectLabel,
       });
       Toast.show({ type: 'success', text1: '✅ Request posted!' });
       router.replace('/(tabs)/requests');

@@ -67,6 +67,12 @@ const noteRequestSchema = new mongoose.Schema(
       ref: 'Subject',
       default: null,
     },
+    subjectLabel: {
+      type: String,
+      trim: true,
+      maxlength: [120, 'Subject label cannot exceed 120 characters'],
+      default: null,
+    },
     // Who posted the request?
     requestedBy: {
       type: mongoose.Schema.Types.ObjectId,

@@ -10,6 +10,8 @@ const express = require('express');
 const cors    = require('cors');
 const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
+const http = require('http');
+const socketIo = require('socket.io');
 
 const connectDB      = require('./config/db');
 const errorHandler   = require('./middleware/errorHandler');
@@ -81,7 +83,45 @@ const startServer = async () => {
   }
 
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
+  const server = http.createServer(app);
+  const io = socketIo(server, {
+    cors: {
+      origin: process.env.CORS_ORIGIN || '*',
+      credentials: true,
+    },
+  });
+
+  // Socket.IO connection handling
+  io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    // Test ping/pong
+    socket.on('ping', (data) => {
+      console.log('Received ping:', data);
+      socket.emit('pong', 'pong from server');
+    });
+
+    // Join group room
+    socket.on('join-group', (groupId) => {
+      socket.join(`group-${groupId}`);
+      console.log(`User ${socket.id} joined group-${groupId}`);
+    });
+
+    // Leave group room
+    socket.on('leave-group', (groupId) => {
+      socket.leave(`group-${groupId}`);
+      console.log(`User ${socket.id} left group-${groupId}`);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
+    });
+  });
+
+  // Make io available to routes
+  app.set('io', io);
+
+  server.listen(PORT, () => {
     console.log(`🚀 UniVault server running on port ${PORT} [${process.env.NODE_ENV}]`);
   });
 };

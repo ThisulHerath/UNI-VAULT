@@ -120,6 +120,10 @@ export const requestService = {
     });
     return res.data;
   },
+  updateFulfillmentVisibility: async (id: string, isPublic: boolean) => {
+    const res = await api.put(`/requests/${id}/fulfillment/visibility`, { isPublic });
+    return res.data;
+  },
   deleteRequest: async (id: string) => {
     const res = await api.delete(`/requests/${id}`);
     return res.data;
@@ -158,6 +162,10 @@ export const groupService = {
     const res = await api.get('/groups', { params });
     return res.data;
   },
+  getMyGroups: async () => {
+    const res = await api.get('/groups/mine');
+    return res.data;
+  },
   getGroupById: async (id: string) => {
     const res = await api.get(`/groups/${id}`);
     return res.data;
@@ -182,12 +190,42 @@ export const groupService = {
     const res = await api.post(`/groups/${id}/join`);
     return res.data;
   },
-  manageMember: async (id: string, userId: string, action: 'approve' | 'remove') => {
+  joinGroupByCode: async (invitationCode: string) => {
+    const res = await api.post('/groups/join-by-code', { invitationCode });
+    return res.data;
+  },
+  leaveGroup: async (id: string) => {
+    const res = await api.post(`/groups/${id}/leave`);
+    return res.data;
+  },
+  manageMember: async (
+    id: string,
+    userId: string,
+    action: 'approve' | 'reject' | 'remove' | 'promote' | 'demote'
+  ) => {
     const res = await api.put(`/groups/${id}/members/${userId}`, { action });
+    return res.data;
+  },
+  updateInvitationCode: async (id: string, invitationCode?: string) => {
+    const res = await api.put(`/groups/${id}/invitation-code`, invitationCode ? { invitationCode } : {});
     return res.data;
   },
   manageNote: async (id: string, noteId: string, action: 'add' | 'remove') => {
     const res = await api.put(`/groups/${id}/notes`, { noteId, action });
+    return res.data;
+  },
+  getMessages: async (id: string, params?: { limit?: number }) => {
+    const res = await api.get(`/groups/${id}/messages`, { params });
+    return res.data;
+  },
+  sendMessage: async (id: string, formData: FormData) => {
+    const res = await api.post(`/groups/${id}/messages`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+  deleteMessage: async (id: string, messageId: string) => {
+    const res = await api.delete(`/groups/${id}/messages/${messageId}`);
     return res.data;
   },
 };

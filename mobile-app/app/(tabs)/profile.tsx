@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   requestMeta:      { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2, marginRight: Spacing.sm },
   requestStatus:    { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
   statusOpen:       { backgroundColor: Colors.success + '22' },
-  statusFulfilled:   { backgroundColor: Colors.primary + '22' },
+  statusFulfilled:  { backgroundColor: Colors.success + '22' },
   statusClosed:     { backgroundColor: Colors.textMuted + '22' },
   requestStatusText:{ fontSize: FontSizes.xs, fontWeight: '700', color: Colors.text, textTransform: 'capitalize' },
   menu:             { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },

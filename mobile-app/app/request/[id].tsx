@@ -87,13 +87,23 @@ export default function RequestDetailScreen() {
   const fulfillment = requestItem?.fulfillment || requestItem?.fulfilledByNote || null;
   const fulfillmentFileUrl = requestItem?.fulfillment?.fileUrl || requestItem?.fulfilledByNote?.fileUrl || null;
   const fulfillmentTitle = requestItem?.fulfilledByNote?.title || fulfillment?.fileName || 'Fulfillment';
+  const requestSubjectLabel = requestItem?.subject?.name || requestItem?.subjectLabel || 'Any Subject';
   const isFulfillmentPublic = !!requestItem?.fulfillment?.isPublic;
-  const canPublishFulfillment = isRequestOwner && !!requestItem?.fulfillment && !isFulfillmentPublic;
+  const canToggleFulfillmentVisibility = isRequestOwner && !!requestItem?.fulfillment;
   const fulfillmentNoteId = requestItem?.fulfilledByNote?._id || requestItem?.fulfilledByNote?.id || null;
+  const canDeleteFulfilledRequest = canManageRequest && requestItem?.status === 'fulfilled';
+  const isDeletedRequest = requestItem?.status === 'closed' && requestItem?.closedReason === 'deleted';
 
   const closedReasonLabel = requestItem?.closedReason
     ? requestItem.closedReason.charAt(0).toUpperCase() + requestItem.closedReason.slice(1)
     : 'Closed';
+  const statusTone = requestItem?.status === 'open'
+    ? { backgroundColor: Colors.success + '20', color: Colors.success }
+    : requestItem?.status === 'fulfilled'
+      ? { backgroundColor: Colors.success + '20', color: Colors.success }
+      : requestItem?.closedReason === 'deleted'
+        ? { backgroundColor: Colors.error + '20', color: Colors.error }
+        : { backgroundColor: Colors.warning + '20', color: Colors.warning };
 
   const confirmDelete = () => {
     setPendingAction('delete');
@@ -245,12 +255,16 @@ export default function RequestDetailScreen() {
     }
   };
 
-  const handleMakePublic = async () => {
+  const handleToggleFulfillmentVisibility = async () => {
     try {
       setProcessing(true);
-      const res = await requestService.updateFulfillmentVisibility(id as string, true);
+      const nextVisibility = !isFulfillmentPublic;
+      const res = await requestService.updateFulfillmentVisibility(id as string, nextVisibility);
       setRequestItem(res.data);
-      Toast.show({ type: 'success', text1: 'Fulfillment is now public' });
+      Toast.show({
+        type: 'success',
+        text1: nextVisibility ? 'Fulfillment is now public' : 'Fulfillment is now private',
+      });
     } catch (e: any) {
       Toast.show({ type: 'error', text1: 'Update failed', text2: e.message });
     } finally {
@@ -318,19 +332,22 @@ export default function RequestDetailScreen() {
         <View style={styles.card}>
           <Text style={styles.title}>{requestItem.title}</Text>
           <Text style={styles.desc}>{requestItem.description}</Text>
-          <View style={styles.statusBox}>
-            <Text style={styles.statusText}>
+          <Text style={styles.subjectText}>{requestSubjectLabel}</Text>
+          <View style={[styles.statusBox, { backgroundColor: statusTone.backgroundColor }]}>
+            <Text style={[styles.statusText, { color: statusTone.color }]}>
               Status: {requestItem.status === 'closed' ? `closed (${closedReasonLabel.toLowerCase()})` : requestItem.status}
             </Text>
           </View>
         </View>
 
-        {fulfillment && (
+        {fulfillment && !isDeletedRequest && (
           <View style={styles.fulfillmentCard}>
             <View style={styles.fulfillmentHeaderRow}>
               <Text style={styles.sectionTitle}>Fulfillment</Text>
               <View style={[styles.visibilityBadge, isFulfillmentPublic ? styles.publicBadge : styles.privateBadge]}>
-                <Text style={styles.visibilityText}>{isFulfillmentPublic ? 'Public' : 'Private'}</Text>
+                <Text style={[styles.visibilityText, isFulfillmentPublic ? styles.publicBadgeText : styles.privateBadgeText]}>
+                  {isFulfillmentPublic ? 'Public' : 'Private'}
+                </Text>
               </View>
             </View>
 
@@ -363,15 +380,19 @@ export default function RequestDetailScreen() {
               </TouchableOpacity>
             )}
 
-            {canPublishFulfillment && (
+            {canToggleFulfillmentVisibility && (
               <TouchableOpacity
-                style={[styles.publishButton, processing && { opacity: 0.7 }]}
-                onPress={handleMakePublic}
+                style={[
+                  styles.visibilityActionButton,
+                  isFulfillmentPublic ? styles.makePrivateButton : styles.makePublicButton,
+                  processing && { opacity: 0.7 },
+                ]}
+                onPress={handleToggleFulfillmentVisibility}
                 disabled={processing}
               >
                 {processing
                   ? <ActivityIndicator size="small" color={Colors.text} />
-                  : <Text style={styles.publishButtonText}>Make Public</Text>}
+                  : <Text style={styles.visibilityActionText}>{isFulfillmentPublic ? 'Make Private' : 'Make Public'}</Text>}
               </TouchableOpacity>
             )}
           </View>
@@ -412,25 +433,28 @@ export default function RequestDetailScreen() {
           </View>
         )}
 
-        <TouchableOpacity
-          style={[
-            styles.button,
-            (!canFulfill || requestItem.status !== 'open') && { opacity: 0.7 },
-          ]}
-          onPress={openFulfillModal}
-          disabled={fulfillSubmitting || !canFulfill || requestItem.status !== 'open'}
-        >
-          {fulfillSubmitting
-            ? <ActivityIndicator size="small" color={Colors.text} />
-            : <Text style={styles.buttonText}>{requestItem.status === 'fulfilled' ? 'Already Fulfilled' : 'Fulfill Request'}</Text>}
-        </TouchableOpacity>
+        {!isDeletedRequest && requestItem.status === 'open' && (
+          <TouchableOpacity
+            style={styles.button}
+            onPress={openFulfillModal}
+            disabled={fulfillSubmitting || !canFulfill}
+          >
+            {fulfillSubmitting
+              ? <ActivityIndicator size="small" color={Colors.text} />
+              : <Text style={styles.buttonText}>Fulfill Request</Text>}
+          </TouchableOpacity>
+        )}
 
         {isRequestOwner && requestItem.status === 'open' && (
           <Text style={styles.helperText}>Only other users can fulfill your request.</Text>
         )}
 
-        {requestItem.status === 'fulfilled' && !fulfillment && (
+        {requestItem.status === 'fulfilled' && !fulfillment && !isDeletedRequest && (
           <Text style={styles.helperText}>This request has been fulfilled privately.</Text>
+        )}
+
+        {isDeletedRequest && (
+          <Text style={styles.helperText}>This request was deleted and its uploaded file was removed.</Text>
         )}
 
         {requestItem.status === 'closed' && (
@@ -439,7 +463,7 @@ export default function RequestDetailScreen() {
           </Text>
         )}
 
-        {canReopen && (
+        {canReopen && !isDeletedRequest && (
           <TouchableOpacity
             style={[styles.reopenButton, reopening && { opacity: 0.7 }]}
             onPress={handleReopen}
@@ -448,6 +472,18 @@ export default function RequestDetailScreen() {
             {reopening
               ? <ActivityIndicator size="small" color={Colors.text} />
               : <Text style={styles.reopenButtonText}>Reopen Request</Text>}
+          </TouchableOpacity>
+        )}
+
+        {canDeleteFulfilledRequest && !isDeletedRequest && (
+          <TouchableOpacity
+            style={[styles.fulfilledDeleteButton, processing && pendingAction === 'delete' && { opacity: 0.7 }]}
+            onPress={confirmDelete}
+            disabled={processing}
+          >
+            {processing && pendingAction === 'delete'
+              ? <ActivityIndicator size="small" color={Colors.text} />
+              : <Text style={styles.fulfilledDeleteButtonText}>Delete Request</Text>}
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -559,23 +595,28 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
   title: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
   desc: { fontSize: FontSizes.md, color: Colors.textMuted, lineHeight: 22, marginBottom: Spacing.lg },
-  statusBox: { backgroundColor: Colors.primary + '20', padding: Spacing.sm, borderRadius: Radius.sm, alignSelf: 'flex-start' },
-  statusText: { color: Colors.primary, fontWeight: '700', fontSize: FontSizes.sm },
+  subjectText: { color: Colors.textMuted, fontSize: FontSizes.sm, fontWeight: '600', marginBottom: Spacing.sm },
+  statusBox: { padding: Spacing.sm, borderRadius: Radius.sm, alignSelf: 'flex-start' },
+  statusText: { fontWeight: '700', fontSize: FontSizes.sm },
   fulfillmentCard: { marginTop: Spacing.md, backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
   fulfillmentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800' },
   visibilityBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
-  publicBadge: { backgroundColor: Colors.success + '25' },
-  privateBadge: { backgroundColor: Colors.warning + '25' },
-  visibilityText: { color: Colors.text, fontSize: FontSizes.xs, fontWeight: '700' },
+  publicBadge: { backgroundColor: Colors.success + '22', borderWidth: 1, borderColor: Colors.success + '66' },
+  privateBadge: { backgroundColor: Colors.secondary + '22', borderWidth: 1, borderColor: Colors.secondary + '66' },
+  visibilityText: { fontSize: FontSizes.xs, fontWeight: '700' },
+  publicBadgeText: { color: Colors.success },
+  privateBadgeText: { color: Colors.secondary },
   fulfillmentTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
   fulfillmentDescription: { color: Colors.textMuted, fontSize: FontSizes.sm, lineHeight: 20, marginTop: 6 },
   fulfillmentMetaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm, marginTop: 10 },
   fulfillmentMetaText: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 4 },
   openFileButton: { marginTop: Spacing.md, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   openFileText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
-  publishButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', backgroundColor: Colors.warning },
-  publishButtonText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
+  visibilityActionButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  makePublicButton: { backgroundColor: Colors.success },
+  makePrivateButton: { backgroundColor: Colors.secondary },
+  visibilityActionText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
   manageRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   manageButton: {
     flex: 1,
@@ -601,6 +642,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reopenButtonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
+  fulfilledDeleteButton: {
+    marginTop: Spacing.md,
+    backgroundColor: Colors.error,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  fulfilledDeleteButtonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',

@@ -21,6 +21,84 @@ const memberSchema = new mongoose.Schema(
   { _id: false } // No separate _id for sub-docs
 );
 
+const joinRequestSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    requestedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
+const groupMessageSchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    text: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [2000, 'Message cannot exceed 2000 characters'],
+    },
+    attachment: {
+      fileId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+        index: true,
+      },
+      fileType: {
+        type: String,
+        enum: ['pdf', 'image', 'doc', 'docx', 'other'],
+        default: null,
+      },
+      fileMimeType: {
+        type: String,
+        default: null,
+      },
+      fileSize: {
+        type: Number,
+        default: null,
+      },
+      originalFileName: {
+        type: String,
+        default: null,
+      },
+      fileUrl: {
+        type: String,
+        default: null,
+      },
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
 const studyGroupSchema = new mongoose.Schema(
   {
     name: {
@@ -57,8 +135,23 @@ const studyGroupSchema = new mongoose.Schema(
       enum: ['public', 'private'],
       default: 'public',
     },
+    joinMode: {
+      type: String,
+      enum: ['open', 'request'],
+      default: 'open',
+    },
+    invitationCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
+      uppercase: true,
+      index: true,
+    },
     // Embedded members array with roles
     members: [memberSchema],
+    joinRequests: [joinRequestSchema],
     // Notes shared specifically within this group
     sharedNotes: [
       {
@@ -66,6 +159,7 @@ const studyGroupSchema = new mongoose.Schema(
         ref: 'Note',
       },
     ],
+    messages: [groupMessageSchema],
     // Avatar/banner image URL for the group
     coverImage: {
       type: String,
@@ -92,5 +186,13 @@ studyGroupSchema.virtual('memberCount').get(function () {
   if (!this.members) return 0;
   return this.members.filter((m) => m.role !== 'pending').length;
 });
+
+studyGroupSchema.virtual('pendingRequestCount').get(function () {
+  if (!this.joinRequests) return 0;
+  return this.joinRequests.filter((r) => r.status === 'pending').length;
+});
+
+studyGroupSchema.index({ privacy: 1, joinMode: 1, createdAt: -1 });
+studyGroupSchema.index({ name: 'text', description: 'text' });
 
 module.exports = mongoose.model('StudyGroup', studyGroupSchema);

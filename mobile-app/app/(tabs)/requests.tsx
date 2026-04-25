@@ -6,7 +6,18 @@ import Toast from 'react-native-toast-message';
 import { requestService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
-const STATUS_COLOR: any = { open: Colors.success, fulfilled: Colors.primary, closed: Colors.textMuted };
+const STATUS_COLOR: any = { open: Colors.warning, fulfilled: Colors.success, closed: Colors.textMuted };
+const FILTER_ACTIVE_STYLE: any = {
+  open: { backgroundColor: Colors.warning, borderColor: Colors.warning },
+  fulfilled: { backgroundColor: Colors.success, borderColor: Colors.success },
+  closed: { backgroundColor: Colors.error, borderColor: Colors.error },
+};
+
+const FILTER_TEXT_ACTIVE_STYLE: any = {
+  open: { color: Colors.text },
+  fulfilled: { color: Colors.text },
+  closed: { color: Colors.text },
+};
 
 const getStatusLabel = (item: any) => {
   if (item.status === 'closed' && item.closedReason) {
@@ -36,7 +47,7 @@ export default function RequestsScreen() {
     <TouchableOpacity style={styles.card} onPress={() => router.push(`/request/${item._id}`)}>
       <View style={{ flex: 1 }}>
         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.meta}>{item.requestedBy?.name} · {item.subject?.name || 'Any Subject'}</Text>
+        <Text style={styles.meta}>{item.requestedBy?.name} · {item.subject?.name || item.subjectLabel || 'Any Subject'}</Text>
         {item.status === 'closed' && item.closedReason && (
           <Text style={styles.closedMeta}>Closed as {item.closedReason}</Text>
         )}
@@ -59,8 +70,15 @@ export default function RequestsScreen() {
       {/* Filter tabs */}
       <View style={styles.filterRow}>
         {(['open', 'fulfilled', 'closed'] as const).map(s => (
-          <TouchableOpacity key={s} style={[styles.filterBtn, filter === s && styles.filterActive]} onPress={() => setFilter(s)}>
-            <Text style={[styles.filterText, filter === s && styles.filterTextActive]}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
+          <TouchableOpacity
+            key={s}
+            style={[
+              styles.filterBtn,
+              filter === s && FILTER_ACTIVE_STYLE[s],
+            ]}
+            onPress={() => setFilter(s)}
+          >
+            <Text style={[styles.filterText, filter === s && FILTER_TEXT_ACTIVE_STYLE[s]]}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -87,7 +105,6 @@ const styles = StyleSheet.create({
   fab:             { width: 38, height: 38, borderRadius: Radius.full, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
   filterRow:       { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.sm, gap: 8 },
   filterBtn:       { flex: 1, paddingVertical: Spacing.xs, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  filterActive:    { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText:      { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600' },
   filterTextActive:{ color: Colors.text },
   card:            { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },

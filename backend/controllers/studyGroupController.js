@@ -1,30 +1,119 @@
 const StudyGroup = require('../models/StudyGroup');
+const User = require('../models/User');
+const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { setNoteFileUrls } = require('../utils/noteFiles');
+const {
+  buildAbsoluteGroupMessageFileUrl,
+  deleteGroupMessageFileFromGridFs,
+  getGroupMessageBucket,
+  setGroupMessageAttachmentUrl,
+  setGroupMessageAttachmentUrls,
+  uploadGroupMessageFileToGridFs,
+} = require('../utils/groupMessageFiles');
+
+const buildInvitationCode = () => crypto.randomBytes(4).toString('hex').toUpperCase();
+
+const generateUniqueInvitationCode = async () => {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const code = buildInvitationCode();
+    const exists = await StudyGroup.exists({ invitationCode: code });
+    if (!exists) return code;
+  }
+
+  throw new Error('Failed to generate a unique invitation code. Please retry.');
+};
+
+const toObjectIdString = (value) => {
+  if (!value) return null;
+
+  if (typeof value === 'string') return value;
+
+  // Supports populated docs: { _id: ObjectId, ... } or { id: string, ... }
+  if (typeof value === 'object') {
+    if (value._id) return value._id.toString();
+    if (value.id) return value.id.toString();
+  }
+
+  return value.toString();
+};
+
+const isOwner = (group, userId) => toObjectIdString(group.createdBy) === toObjectIdString(userId);
+
+const getMember = (group, userId) =>
+  group.members.find((m) => toObjectIdString(m.user) === toObjectIdString(userId));
+
+const isAdmin = (group, userId) => {
+  if (isOwner(group, userId)) return true;
+  const member = getMember(group, userId);
+  return !!member && member.role === 'admin';
+};
+
+const isActiveMember = (group, userId) => {
+  const member = getMember(group, userId);
+  return !!member && member.role !== 'pending';
+};
+
+const normalizeGroupAccess = (body = {}) => {
+  const privacy = body.privacy === 'private' ? 'private' : 'public';
+  let joinMode = body.joinMode === 'request' ? 'request' : 'open';
+
+  if (privacy === 'private') {
+    joinMode = 'request';
+  }
+
+  return { privacy, joinMode };
+};
+
+const setCoverImageFromRequest = (req, groupData) => {
+  if (!req.file) return;
+
+  const coverUrl = `${req.protocol}://${req.get('host')}/uploads/covers/${req.file.filename}`;
+  groupData.coverImage = coverUrl;
+  groupData.coverPublicId = req.file.filename;
+};
+
+const getCreatedGroupMessage = async (group, messageId) => {
+  const createdMessage = group.messages.id(messageId);
+  if (!createdMessage) return null;
+
+  await StudyGroup.populate(createdMessage, { path: 'sender', select: 'name avatar' });
+  return createdMessage;
+};
 
 // ─── @route  POST /api/groups ─────────────────────────────────────────────────
 // ─── @access Private
 exports.createGroup = async (req, res, next) => {
   try {
-    const { name, description, subject, batch, privacy } = req.body;
+    const { name, description, subject, batch } = req.body;
+    const { privacy, joinMode } = normalizeGroupAccess(req.body);
+    const invitationCode = privacy === 'private'
+      ? ((req.body.invitationCode || '').trim().toUpperCase() || await generateUniqueInvitationCode())
+      : null;
+
+    if (invitationCode) {
+      const codeExists = await StudyGroup.exists({ invitationCode });
+      if (codeExists) {
+        return res.status(400).json({ success: false, message: 'Invitation code already exists. Use a different code.' });
+      }
+    }
 
     const groupData = {
       name,
       description,
       subject: subject || null,
-      batch:   batch   || null,
-      privacy: privacy || 'public',
+      batch: batch || null,
+      privacy,
+      joinMode,
+      invitationCode,
       createdBy: req.user._id,
       // Creator is automatically an admin member
       members: [{ user: req.user._id, role: 'admin' }],
     };
 
-    if (req.file) {
-      const coverUrl = `${req.protocol}://${req.get('host')}/uploads/covers/${req.file.filename}`;
-      groupData.coverImage    = coverUrl;
-      groupData.coverPublicId = req.file.filename;
-    }
+    setCoverImageFromRequest(req, groupData);
 
     const group = await StudyGroup.create(groupData);
 
@@ -44,14 +133,19 @@ exports.createGroup = async (req, res, next) => {
 // ─── @access Public (public groups only)
 exports.getGroups = async (req, res, next) => {
   try {
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-    const filter = { isActive: true };
-    if (!req.query.all) filter.privacy = 'public'; // default: public only
+    const filter = { isActive: true, privacy: 'public' };
+    if (req.query.joinMode === 'open' || req.query.joinMode === 'request') {
+      filter.joinMode = req.query.joinMode;
+    }
     if (req.query.subject) filter.subject = req.query.subject;
-    if (req.query.batch)   filter.batch   = req.query.batch;
+    if (req.query.batch) filter.batch = req.query.batch;
+    if (req.query.search) {
+      filter.$text = { $search: req.query.search };
+    }
 
     const [groups, total] = await Promise.all([
       StudyGroup.find(filter)
@@ -76,6 +170,29 @@ exports.getGroups = async (req, res, next) => {
   }
 };
 
+// ─── @route  GET /api/groups/mine ─────────────────────────────────────────────
+// ─── @access Private
+exports.getMyGroups = async (req, res, next) => {
+  try {
+    const groups = await StudyGroup.find({
+      isActive: true,
+      members: {
+        $elemMatch: {
+          user: req.user._id,
+          role: { $ne: 'pending' },
+        },
+      },
+    })
+      .populate('createdBy', 'name avatar')
+      .populate('subject', 'name code')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: groups.length, data: groups });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── @route  GET /api/groups/:id ─────────────────────────────────────────────
 // ─── @access Public (private groups visible to members only)
 exports.getGroupById = async (req, res, next) => {
@@ -84,6 +201,9 @@ exports.getGroupById = async (req, res, next) => {
       .populate('createdBy', 'name avatar')
       .populate('subject', 'name code')
       .populate('members.user', 'name avatar batch')
+      .populate('joinRequests.user', 'name avatar batch')
+      .populate('joinRequests.resolvedBy', 'name')
+      .populate('messages.sender', 'name avatar')
       .populate({
         path: 'sharedNotes',
         select: 'title fileUrl fileType averageRating subject uploadedBy',
@@ -97,21 +217,36 @@ exports.getGroupById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Study group not found.' });
     }
 
+    const requesterId = req.user?._id;
+    const requesterIsMember = requesterId ? isActiveMember(group, requesterId) : false;
+    const requesterIsAdmin = requesterId ? isAdmin(group, requesterId) : false;
+
     if (group.privacy === 'private') {
-      // Must be logged in and a non-pending member
-      if (!req.user) {
-        return res.status(403).json({ success: false, message: 'This group is private.' });
-      }
-      const isMember = group.members.some(
-        (m) => m.user._id.toString() === req.user._id.toString() && m.role !== 'pending'
-      );
-      if (!isMember) {
+      if (!requesterIsMember) {
         return res.status(403).json({ success: false, message: 'You are not a member of this private group.' });
       }
     }
 
     const plainGroup = group.toObject();
     plainGroup.sharedNotes = setNoteFileUrls(plainGroup.sharedNotes, req);
+    plainGroup.messages = setGroupMessageAttachmentUrls(plainGroup.messages, req, plainGroup._id);
+
+    // Group chat and materials are only visible to active members.
+    if (!requesterIsMember) {
+      plainGroup.messages = [];
+      plainGroup.sharedNotes = [];
+    }
+
+    if (!requesterIsAdmin) {
+      plainGroup.joinRequests = [];
+      if (!requesterIsMember && plainGroup.invitationCode) {
+        delete plainGroup.invitationCode;
+      }
+    }
+
+    plainGroup.requesterRole = requesterIsAdmin
+      ? (isOwner(group, requesterId) ? 'owner' : 'admin')
+      : (requesterIsMember ? 'member' : 'guest');
 
     res.status(200).json({ success: true, data: plainGroup });
   } catch (error) {
@@ -128,18 +263,45 @@ exports.updateGroup = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Study group not found.' });
     }
 
-    const isAdmin = group.members.some(
-      (m) => m.user.toString() === req.user._id.toString() && m.role === 'admin'
-    );
-    if (!isAdmin) {
+    if (!isAdmin(group, req.user._id)) {
       return res.status(403).json({ success: false, message: 'Only group admins can update this group.' });
     }
 
-    const { name, description, privacy, batch } = req.body;
-    if (name)        group.name        = name;
+    const { name, description, batch } = req.body;
+    if (name) group.name = name;
     if (description) group.description = description;
-    if (privacy)     group.privacy     = privacy;
-    if (batch)       group.batch       = batch;
+    if (batch) group.batch = batch;
+
+    const accessInput = normalizeGroupAccess(req.body);
+    if (req.body.privacy) {
+      group.privacy = accessInput.privacy;
+    }
+
+    if (group.privacy === 'public') {
+      if (req.body.joinMode) {
+        group.joinMode = accessInput.joinMode;
+      }
+      group.invitationCode = null;
+    }
+
+    if (group.privacy === 'private') {
+      group.joinMode = 'request';
+      const codeFromBody = (req.body.invitationCode || '').trim().toUpperCase();
+      const shouldRegenerate = req.body.regenerateInvitationCode === true || req.body.regenerateInvitationCode === 'true';
+
+      if (codeFromBody) {
+        const codeInUse = await StudyGroup.exists({
+          invitationCode: codeFromBody,
+          _id: { $ne: group._id },
+        });
+        if (codeInUse) {
+          return res.status(400).json({ success: false, message: 'Invitation code already exists. Use a different code.' });
+        }
+        group.invitationCode = codeFromBody;
+      } else if (shouldRegenerate || !group.invitationCode) {
+        group.invitationCode = await generateUniqueInvitationCode();
+      }
+    }
 
     if (req.file) {
       // Delete old cover image from disk
@@ -149,9 +311,7 @@ exports.updateGroup = async (req, res, next) => {
           fs.unlinkSync(oldFilePath);
         }
       }
-      const coverUrl = `${req.protocol}://${req.get('host')}/uploads/covers/${req.file.filename}`;
-      group.coverImage    = coverUrl;
-      group.coverPublicId = req.file.filename;
+      setCoverImageFromRequest(req, group);
     }
 
     await group.save();
@@ -171,22 +331,98 @@ exports.joinGroup = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Study group not found.' });
     }
 
-    const alreadyMember = group.members.some(
-      (m) => m.user.toString() === req.user._id.toString()
-    );
-    if (alreadyMember) {
+    const member = getMember(group, req.user._id);
+    if (member && member.role !== 'pending') {
       return res.status(400).json({ success: false, message: 'You are already in this group.' });
     }
 
-    const role = group.privacy === 'public' ? 'member' : 'pending';
-    group.members.push({ user: req.user._id, role });
+    if (group.privacy === 'private') {
+      return res.status(403).json({
+        success: false,
+        message: 'This is a private group. Use a valid invitation code to join.',
+      });
+    }
+
+    if (group.joinMode === 'open') {
+      if (!member) {
+        group.members.push({ user: req.user._id, role: 'member' });
+      }
+      await group.save();
+      await req.user.updateOne({ $addToSet: { studyGroups: group._id } });
+
+      return res.status(200).json({ success: true, message: 'Joined group successfully.' });
+    }
+
+    const existingPendingRequest = group.joinRequests.find(
+      (request) => toObjectIdString(request.user) === toObjectIdString(req.user._id) && request.status === 'pending'
+    );
+
+    if (existingPendingRequest) {
+      return res.status(400).json({ success: false, message: 'Join request already pending.' });
+    }
+
+    const existingRequest = group.joinRequests.find(
+      (request) => toObjectIdString(request.user) === toObjectIdString(req.user._id)
+    );
+
+    if (existingRequest) {
+      existingRequest.status = 'pending';
+      existingRequest.requestedAt = new Date();
+      existingRequest.resolvedAt = null;
+      existingRequest.resolvedBy = null;
+    } else {
+      group.joinRequests.push({ user: req.user._id, status: 'pending' });
+    }
+
     await group.save();
 
+    return res.status(200).json({
+      success: true,
+      message: 'Join request sent. Awaiting admin approval.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  POST /api/groups/join-by-code ────────────────────────────────────
+// ─── @access Private
+exports.joinGroupByCode = async (req, res, next) => {
+  try {
+    const code = (req.body.invitationCode || '').trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json({ success: false, message: 'Invitation code is required.' });
+    }
+
+    const group = await StudyGroup.findOne({ isActive: true, privacy: 'private', invitationCode: code });
+
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Invalid invitation code.' });
+    }
+
+    const member = getMember(group, req.user._id);
+    if (member && member.role !== 'pending') {
+      return res.status(200).json({ success: true, message: 'You are already in this group.', data: { groupId: group._id } });
+    }
+
+    group.joinRequests = group.joinRequests.filter(
+      (request) => toObjectIdString(request.user) !== toObjectIdString(req.user._id)
+    );
+
+    if (!member) {
+      group.members.push({ user: req.user._id, role: 'member' });
+    } else {
+      member.role = 'member';
+      member.joinedAt = new Date();
+    }
+
+    await group.save();
     await req.user.updateOne({ $addToSet: { studyGroups: group._id } });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: role === 'pending' ? 'Join request sent. Awaiting admin approval.' : 'Joined group successfully.',
+      message: 'Joined private group successfully.',
+      data: { groupId: group._id },
     });
   } catch (error) {
     next(error);
@@ -194,7 +430,7 @@ exports.joinGroup = async (req, res, next) => {
 };
 
 // ─── @route  PUT /api/groups/:id/members/:userId ──────────────────────────────
-// ─── @access Private (group admin) — approve or remove a member
+// ─── @access Private (RBAC action handler)
 exports.manageMember = async (req, res, next) => {
   try {
     const group = await StudyGroup.findById(req.params.id);
@@ -202,33 +438,168 @@ exports.manageMember = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Study group not found.' });
     }
 
-    const isAdmin = group.members.some(
-      (m) => m.user.toString() === req.user._id.toString() && m.role === 'admin'
-    );
-    if (!isAdmin) {
+    const requesterIsAdmin = isAdmin(group, req.user._id);
+    if (!requesterIsAdmin) {
       return res.status(403).json({ success: false, message: 'Only group admins can manage members.' });
     }
 
-    const { action } = req.body; // 'approve' | 'remove'
+    const requesterIsOwner = isOwner(group, req.user._id);
+    const targetUserId = req.params.userId;
+    const { action } = req.body; // approve | reject | remove | promote | demote
+
+    if (!['approve', 'reject', 'remove', 'promote', 'demote'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action must be one of: 'approve', 'reject', 'remove', 'promote', 'demote'.",
+      });
+    }
+
+    if (action === 'approve' || action === 'reject') {
+      const requestIndex = group.joinRequests.findIndex(
+        (request) => toObjectIdString(request.user) === toObjectIdString(targetUserId) && request.status === 'pending'
+      );
+
+      if (requestIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Pending join request not found.' });
+      }
+
+      const request = group.joinRequests[requestIndex];
+      request.status = action === 'approve' ? 'approved' : 'rejected';
+      request.resolvedAt = new Date();
+      request.resolvedBy = req.user._id;
+
+      if (action === 'approve') {
+        const existingMember = getMember(group, targetUserId);
+        if (!existingMember) {
+          group.members.push({ user: targetUserId, role: 'member' });
+        } else {
+          existingMember.role = 'member';
+          existingMember.joinedAt = existingMember.joinedAt || new Date();
+        }
+        await User.updateOne({ _id: targetUserId }, { $addToSet: { studyGroups: group._id } });
+      }
+
+      await group.save();
+      return res.status(200).json({
+        success: true,
+        message: `Join request ${action}d successfully.`,
+        data: group,
+      });
+    }
+
     const memberIndex = group.members.findIndex(
-      (m) => m.user.toString() === req.params.userId
+      (m) => toObjectIdString(m.user) === toObjectIdString(targetUserId)
     );
 
     if (memberIndex === -1) {
       return res.status(404).json({ success: false, message: 'Member not found in group.' });
     }
 
-    if (action === 'approve') {
-      group.members[memberIndex].role = 'member';
-    } else if (action === 'remove') {
+    const targetMember = group.members[memberIndex];
+    const targetIsOwner = isOwner(group, targetUserId);
+    const targetIsAdmin = targetMember.role === 'admin';
+
+    if (targetIsOwner) {
+      return res.status(400).json({ success: false, message: 'Owner cannot be modified via this endpoint.' });
+    }
+
+    if ((action === 'promote' || action === 'demote') && !requesterIsOwner) {
+      return res.status(403).json({ success: false, message: 'Only the owner can change admin privileges.' });
+    }
+
+    if (action === 'remove' && targetIsAdmin && !requesterIsOwner) {
+      return res.status(403).json({ success: false, message: 'Only the owner can remove another admin.' });
+    }
+
+    if (action === 'remove') {
       group.members.splice(memberIndex, 1);
-    } else {
-      return res.status(400).json({ success: false, message: "Action must be 'approve' or 'remove'." });
+      group.joinRequests = group.joinRequests.filter(
+        (request) => toObjectIdString(request.user) !== toObjectIdString(targetUserId)
+      );
+      await User.updateOne({ _id: targetUserId }, { $pull: { studyGroups: group._id } });
+    }
+
+    if (action === 'promote') {
+      targetMember.role = 'admin';
+    }
+
+    if (action === 'demote') {
+      targetMember.role = 'member';
     }
 
     await group.save();
 
     res.status(200).json({ success: true, message: `Member ${action}d successfully.`, data: group });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  POST /api/groups/:id/leave ───────────────────────────────────────
+// ─── @access Private
+exports.leaveGroup = async (req, res, next) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (!isActiveMember(group, req.user._id)) {
+      return res.status(400).json({ success: false, message: 'You are not an active member of this group.' });
+    }
+
+    if (isOwner(group, req.user._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Owner cannot leave the group. Delete the group or transfer ownership first.',
+      });
+    }
+
+    group.members = group.members.filter((member) => toObjectIdString(member.user) !== toObjectIdString(req.user._id));
+    group.joinRequests = group.joinRequests.filter((request) => toObjectIdString(request.user) !== toObjectIdString(req.user._id));
+
+    await group.save();
+    await req.user.updateOne({ $pull: { studyGroups: group._id } });
+
+    res.status(200).json({ success: true, message: 'You left the group successfully.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  PUT /api/groups/:id/invitation-code ─────────────────────────────
+// ─── @access Private (owner/admin)
+exports.updateInvitationCode = async (req, res, next) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (group.privacy !== 'private') {
+      return res.status(400).json({ success: false, message: 'Invitation codes are only available for private groups.' });
+    }
+
+    if (!isAdmin(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only owner/admin can update invitation code.' });
+    }
+
+    const customCode = (req.body.invitationCode || '').trim().toUpperCase();
+    let nextCode = customCode;
+
+    if (!nextCode) {
+      nextCode = await generateUniqueInvitationCode();
+    } else {
+      const codeInUse = await StudyGroup.exists({ invitationCode: nextCode, _id: { $ne: group._id } });
+      if (codeInUse) {
+        return res.status(400).json({ success: false, message: 'Invitation code already exists. Use a different code.' });
+      }
+    }
+
+    group.invitationCode = nextCode;
+    await group.save();
+
+    res.status(200).json({ success: true, message: 'Invitation code updated.', data: { invitationCode: nextCode } });
   } catch (error) {
     next(error);
   }
@@ -243,10 +614,7 @@ exports.manageGroupNote = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Study group not found.' });
     }
 
-    const isMember = group.members.some(
-      (m) => m.user.toString() === req.user._id.toString() && m.role !== 'pending'
-    );
-    if (!isMember) {
+    if (!isActiveMember(group, req.user._id)) {
       return res.status(403).json({ success: false, message: 'Only group members can share notes.' });
     }
 
@@ -263,6 +631,195 @@ exports.manageGroupNote = async (req, res, next) => {
   }
 };
 
+// ─── @route  GET /api/groups/:id/messages ─────────────────────────────────────
+// ─── @access Private (group member)
+exports.getGroupMessages = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 200);
+
+    const group = await StudyGroup.findById(req.params.id)
+      .select('name messages members createdBy')
+      .populate('messages.sender', 'name avatar');
+
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (!isActiveMember(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only group members can view group chat.' });
+    }
+
+    const messages = group.messages.slice(-limit);
+    res.status(200).json({ success: true, count: messages.length, data: setGroupMessageAttachmentUrls(messages, req, group._id.toString()) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  POST /api/groups/:id/messages ────────────────────────────────────
+// ─── @access Private (group member)
+exports.createGroupMessage = async (req, res, next) => {
+  let uploadedFileId = null;
+
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (!isActiveMember(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only group members can send messages.' });
+    }
+
+    const text = (req.body.text || '').trim();
+    if (!text && !req.file) {
+      return res.status(400).json({ success: false, message: 'Message text or an attachment is required.' });
+    }
+
+    const message = group.messages.create({
+      sender: req.user._id,
+      text,
+    });
+
+    if (req.file) {
+      const uploadResult = await uploadGroupMessageFileToGridFs(req.file, group._id, message._id);
+      uploadedFileId = uploadResult.fileId;
+      message.attachment = {
+        fileId: uploadResult.fileId,
+        fileType: uploadResult.fileType,
+        fileMimeType: uploadResult.fileMimeType,
+        fileSize: uploadResult.fileSize,
+        originalFileName: uploadResult.fileName,
+        fileUrl: buildAbsoluteGroupMessageFileUrl(req, group._id.toString(), message._id.toString()),
+      };
+    }
+
+    group.messages.push(message);
+    await group.save();
+
+    const createdMessage = await getCreatedGroupMessage(group, message._id);
+    const plainMessage = setGroupMessageAttachmentUrl(createdMessage, req, group._id.toString());
+
+    // Emit real-time message event
+    const io = req.app.get('io');
+    if (io) {
+      console.log('Emitting new-message event for group:', req.params.id);
+      io.to(`group-${req.params.id}`).emit('new-message', {
+        groupId: req.params.id,
+        message: plainMessage,
+      });
+    }
+
+    res.status(201).json({ success: true, data: plainMessage });
+  } catch (error) {
+    if (uploadedFileId) {
+      try {
+        await deleteGroupMessageFileFromGridFs(uploadedFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures; the main error should be surfaced.
+      }
+    }
+    next(error);
+  }
+};
+
+// ─── @route  GET /api/groups/:id/messages/:messageId/file ───────────────────
+// ─── @access Private (group member)
+exports.getGroupMessageFile = async (req, res, next) => {
+  try {
+    const { id, messageId } = req.params;
+
+    const group = await StudyGroup.findById(id)
+      .select('messages members createdBy')
+      .populate('messages.sender', 'name avatar');
+
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (!isActiveMember(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only group members can view attachments.' });
+    }
+
+    const message = group.messages.id(messageId);
+    if (!message || !message.attachment?.fileId) {
+      return res.status(404).json({ success: false, message: 'Attachment not found.' });
+    }
+
+    const bucket = getGroupMessageBucket();
+    const fileId = message.attachment.fileId instanceof mongoose.Types.ObjectId
+      ? message.attachment.fileId
+      : new mongoose.Types.ObjectId(message.attachment.fileId);
+
+    const files = await bucket.find({ _id: fileId }).toArray();
+    if (!files.length) {
+      return res.status(404).json({ success: false, message: 'File not found.' });
+    }
+
+    const file = files[0];
+    res.setHeader('Content-Type', file.contentType || message.attachment.fileMimeType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${(message.attachment.originalFileName || file.filename || 'group-attachment').replace(/"/g, '\\"')}"`
+    );
+
+    return bucket.openDownloadStream(fileId).on('error', next).pipe(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  DELETE /api/groups/:id/messages/:messageId ───────────────────────
+// ─── @access Private (message sender only)
+exports.deleteGroupMessage = async (req, res, next) => {
+  try {
+    const { id, messageId } = req.params;
+    const group = await StudyGroup.findById(id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    const message = group.messages.id(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found.' });
+    }
+
+    if (String(message.sender) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only the sender can delete this message.' });
+    }
+
+    if (!isActiveMember(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only group members can modify messages.' });
+    }
+
+    const attachmentFileId = message.attachment?.fileId;
+
+    group.messages.pull(message._id);
+    await group.save();
+
+    if (attachmentFileId) {
+      try {
+        await deleteGroupMessageFileFromGridFs(attachmentFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures so the delete still succeeds.
+      }
+    }
+
+    // Emit real-time message deletion event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`group-${req.params.id}`).emit('delete-message', {
+        groupId: req.params.id,
+        messageId: req.params.messageId,
+      });
+    }
+
+    res.status(200).json({ success: true, message: 'Message deleted.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── @route  DELETE /api/groups/:id ──────────────────────────────────────────
 // ─── @access Private (group admin only)
 exports.deleteGroup = async (req, res, next) => {
@@ -272,11 +829,8 @@ exports.deleteGroup = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Study group not found.' });
     }
 
-    const isAdmin = group.members.some(
-      (m) => m.user.toString() === req.user._id.toString() && m.role === 'admin'
-    );
-    if (!isAdmin && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Only group admins can delete this group.' });
+    if (!isOwner(group, req.user._id) && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only the group owner can delete this group.' });
     }
 
     // Delete cover image from disk
@@ -287,6 +841,17 @@ exports.deleteGroup = async (req, res, next) => {
       }
     }
 
+    const attachmentFileIds = Array.isArray(group.messages)
+      ? group.messages
+        .map((message) => message.attachment?.fileId)
+        .filter(Boolean)
+      : [];
+
+    await Promise.allSettled(
+      attachmentFileIds.map((fileId) => deleteGroupMessageFileFromGridFs(fileId))
+    );
+
+    await User.updateMany({ studyGroups: group._id }, { $pull: { studyGroups: group._id } });
     await group.deleteOne();
 
     res.status(200).json({ success: true, message: 'Study group deleted successfully.' });
