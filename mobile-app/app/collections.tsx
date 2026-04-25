@@ -170,9 +170,10 @@ export default function CollectionsScreen() {
     const fulfillmentCount = Array.isArray(item?.requestFulfillments) ? item.requestFulfillments.length : 0;
     const totalCount = noteCount + fulfillmentCount;
     const targetLabel = formatTargetDate(item?.targetDate);
+    const borderColor = getPriorityColor(item.priority);
 
     return (
-      <TouchableOpacity style={styles.card} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: item._id } })}>
+      <TouchableOpacity style={[styles.card, { borderLeftWidth: 4, borderLeftColor: borderColor }]} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: item._id } })}>
         <View style={styles.iconContainer}>
           <Ionicons name={item.isPrivate ? "lock-closed" : "earth"} size={24} color={Colors.primary} />
         </View>
