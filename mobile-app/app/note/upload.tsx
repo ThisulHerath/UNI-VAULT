@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import { noteService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+import { SUBJECT_CATALOG } from '../../constants/subject-catalog';
 
 const MAX_NOTE_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_NOTE_FILE_SIZE_MB = 15;
@@ -20,48 +21,6 @@ const ALLOWED_NOTE_MIME_TYPES = new Set([
   'image/webp',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
-
-const SUBJECT_CATALOG = [
-  { code: 'IT1010', name: 'Introduction to Programming' },
-  { code: 'IT1020', name: 'Introduction to Computer Systems' },
-  { code: 'IT1030', name: 'Mathematics for Computing' },
-  { code: 'IT1040', name: 'Communication Skills' },
-  { code: 'IT1050', name: 'Object Oriented Concepts' },
-  { code: 'IT1060', name: 'Software Process Modeling' },
-  { code: 'IT1080', name: 'English for Academic Purposes' },
-  { code: 'IT1090', name: 'Information Systems and Data Modeling' },
-  { code: 'IT1100', name: 'Internet and Web Technologies' },
-  { code: 'IT2010', name: 'Mobile Application Development' },
-  { code: 'IT2020', name: 'Software Engineering' },
-  { code: 'IT2021', name: 'Artificial Intelligence and Machine Learning Project' },
-  { code: 'IT2030', name: 'Object Oriented Programming' },
-  { code: 'IT2040', name: 'Database Management Systems' },
-  { code: 'IT2050', name: 'Computer Networks' },
-  { code: 'IT2060', name: 'Operating Systems and System Administration' },
-  { code: 'IT2070', name: 'Data Structures and Algorithms' },
-  { code: 'IT2080', name: 'IT Project' },
-  { code: 'IT2090', name: 'Professional Skills' },
-  { code: 'IT2110', name: 'Probability and Statistics' },
-  { code: 'IT2130', name: 'Operating Systems and System Administration [2026/JAN]' },
-  { code: 'IT2160', name: 'Professional Skills' },
-  { code: 'SE2020', name: 'Web and Mobile Technology' },
-  { code: 'SE3010', name: 'Software Engineering Process & Quality Management' },
-  { code: 'SE3020', name: 'Distributed Systems' },
-  { code: 'SE3030', name: 'Software Architecture' },
-  { code: 'SE3040', name: 'Application Frameworks' },
-  { code: 'SE3050', name: 'User Experience Engineering' },
-  { code: 'SE3070', name: 'Case Studies in Software Engineering' },
-  { code: 'SE3080', name: 'Software Project Management' },
-  { code: 'IT3110', name: 'Industry Placement' },
-  { code: 'IT4010', name: 'Research Project' },
-  { code: 'IT4020', name: 'Advanced Database Management Systems' },
-  { code: 'IT4070', name: 'Preparation for the Professional World' },
-  { code: 'SE4010', name: 'Software Quality Assurance' },
-  { code: 'SE4020', name: 'Software Maintenance and Evolution' },
-  { code: 'SE4030', name: 'Cloud Computing' },
-  { code: 'SE4040', name: 'Software Security' },
-  { code: 'IT4021', name: 'Internet of Things' },
-];
 
 const formatFileSize = (bytes?: number) => {
   if (!bytes && bytes !== 0) return 'Unknown size';

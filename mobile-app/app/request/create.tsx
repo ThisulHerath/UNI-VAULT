@@ -5,27 +5,47 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { requestService, subjectService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+import { SUBJECT_CATALOG, SubjectCatalogItem } from '../../constants/subject-catalog';
 
 export default function CreateRequestScreen() {
   const [title, setTitle]     = useState('');
   const [desc, setDesc]       = useState('');
-  const [subject, setSubject] = useState<any>(null);
-  const [subjects, setSubjects] = useState<any[]>([]);
+  const [subject, setSubject] = useState<SubjectCatalogItem | null>(null);
+  const [subjectIdByCode, setSubjectIdByCode] = useState<Record<string, string>>({});
   const [subjectQuery, setSubjectQuery] = useState('');
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { subjectService.getSubjects().then(r => setSubjects(r.data || [])).catch(() => {}); }, []);
+  useEffect(() => { 
+    subjectService
+      .getSubjects()
+      .then((r) => {
+        const subjectMap: Record<string, string> = {};
+        (r.data || []).forEach((item: any) => {
+          if (item?.code && item?._id) {
+            subjectMap[item.code] = item._id;
+          }
+        });
+        setSubjectIdByCode(subjectMap);
+      })
+      .catch(() => {
+        Toast.show({
+          type: 'error',
+          text1: 'Subjects unavailable',
+          text2: 'Using local subject list. Request will still be posted.',
+        });
+      }); 
+  }, []);
 
   const normalizedQuery = subjectQuery.trim().toLowerCase();
-  const filteredSubjects = subjects.filter((s) => {
+  const filteredSubjects = SUBJECT_CATALOG.filter((s) => {
     if (!normalizedQuery) return true;
     const code = (s.code || '').toLowerCase();
     const name = (s.name || '').toLowerCase();
     return code.includes(normalizedQuery) || name.includes(normalizedQuery);
   });
 
-  const selectSubject = (item: any) => {
+  const selectSubject = (item: SubjectCatalogItem) => {
     setSubject(item);
     setSubjectQuery(item.name || item.code || '');
     setSubjectDropdownOpen(false);
@@ -35,7 +55,12 @@ export default function CreateRequestScreen() {
     if (!title.trim()) { Toast.show({ type: 'error', text1: 'Title is required' }); return; }
     setLoading(true);
     try {
-      await requestService.createRequest({ title: title.trim(), description: desc.trim(), subject: subject?._id || undefined });
+      const selectedSubjectId = subject?.code ? subjectIdByCode[subject.code] : undefined;
+      await requestService.createRequest({
+        title: title.trim(),
+        description: desc.trim(),
+        subject: selectedSubjectId || undefined,
+      });
       Toast.show({ type: 'success', text1: '✅ Request posted!' });
       router.replace('/(tabs)/requests');
     } catch (e: any) {
@@ -67,6 +92,7 @@ export default function CreateRequestScreen() {
               placeholder="Search subject code/name"
               placeholderTextColor={Colors.textMuted}
               value={subjectQuery}
+              editable={!subject}
               onFocus={() => setSubjectDropdownOpen(true)}
               onChangeText={(text) => {
                 setSubjectQuery(text);
@@ -100,7 +126,7 @@ export default function CreateRequestScreen() {
               >
                 <Text style={styles.dropdownSectionTitle}>Available Subjects</Text>
                 {filteredSubjects.slice(0, 20).map((s) => (
-                  <TouchableOpacity key={s._id} style={styles.dropdownItem} onPress={() => selectSubject(s)}>
+                  <TouchableOpacity key={s.code} style={styles.dropdownItem} onPress={() => selectSubject(s)}>
                     <Text style={styles.dropdownItemTitle}>{s.name || s.code}</Text>
                     {!!s.code && <Text style={styles.dropdownItemSub}>{s.code}</Text>}
                   </TouchableOpacity>
