@@ -86,6 +86,7 @@ export default function CollectionsScreen() {
   const [newIsPrivate, setNewIsPrivate] = useState(true);
   const [newTags, setNewTags] = useState('');
 
+  // Resets the collection creation form to its default state
   const resetForm = () => {
     setNewName('');
     setNewDescription('');
