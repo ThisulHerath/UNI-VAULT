@@ -254,7 +254,7 @@ export default function CollectionsScreen() {
                   placeholderTextColor={Colors.textMuted}
                 />
                 {searchQuery ? (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <TouchableOpacity onPress={() => { setSearchQuery(''); /* dismiss keyboard if needed */ }}>
                     <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
                   </TouchableOpacity>
                 ) : null}
