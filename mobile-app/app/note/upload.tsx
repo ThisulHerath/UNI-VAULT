@@ -49,6 +49,7 @@ export default function UploadNoteScreen() {
   const [otherSubject, setOtherSubject] = useState('');
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading]   = useState(false);
+  const [isPickingDocument, setIsPickingDocument] = useState(false);
 
   const normalizedQuery = subjectQuery.trim().toLowerCase();
 
@@ -77,36 +78,49 @@ export default function UploadNoteScreen() {
   };
 
   const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*', 'application/msword',
-             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-      copyToCacheDirectory: true,
-    });
+    if (isPickingDocument) return; // Prevent concurrent calls
+    
+    setIsPickingDocument(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*', 'application/msword',
+               'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      });
 
-    if (result.canceled || !result.assets?.[0]) {
-      return;
-    }
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
 
-    const selectedFile = result.assets[0];
-    if (!isAllowedNoteFile(selectedFile.mimeType, selectedFile.name)) {
+      const selectedFile = result.assets[0];
+      if (!isAllowedNoteFile(selectedFile.mimeType, selectedFile.name)) {
+        Toast.show({
+          type: 'error',
+          text1: 'Unsupported file type',
+          text2: 'Only PDF, Word documents, JPG, PNG, GIF, and WEBP files are allowed.',
+        });
+        return;
+      }
+
+      if (selectedFile.size && selectedFile.size > MAX_NOTE_FILE_SIZE_BYTES) {
+        Toast.show({
+          type: 'error',
+          text1: 'File too large',
+          text2: `Maximum note size is ${MAX_NOTE_FILE_SIZE_MB} MB.`,
+        });
+        return;
+      }
+
+      setFile(selectedFile);
+    } catch (error: any) {
+      console.error('File picker error:', error);
       Toast.show({
         type: 'error',
-        text1: 'Unsupported file type',
-        text2: 'Only PDF, Word documents, JPG, PNG, GIF, and WEBP files are allowed.',
+        text1: 'Failed to pick file',
+        text2: error?.message || 'Please try again',
       });
-      return;
+    } finally {
+      setIsPickingDocument(false);
     }
-
-    if (selectedFile.size && selectedFile.size > MAX_NOTE_FILE_SIZE_BYTES) {
-      Toast.show({
-        type: 'error',
-        text1: 'File too large',
-        text2: `Maximum note size is ${MAX_NOTE_FILE_SIZE_MB} MB.`,
-      });
-      return;
-    }
-
-    setFile(selectedFile);
   };
 
   const handleUpload = async () => {
@@ -152,11 +166,28 @@ export default function UploadNoteScreen() {
       formData.append('tags', tags.trim());
       formData.append('file', { uri: file.uri, type: file.mimeType || 'application/octet-stream', name: file.name } as any);
 
+      console.log('📤 Uploading note:', {
+        title: title.trim(),
+        fileName: file.name,
+        fileType: file.mimeType,
+        fileSize: file.size,
+        subject: selectedSubjectText || noteOnlySubject,
+      });
+
       await noteService.createNote(formData);
       Toast.show({ type: 'success', text1: '✅ Note uploaded successfully!' });
       router.replace('/(tabs)/notes');
     } catch (e: any) {
-      Toast.show({ type: 'error', text1: 'Upload Failed', text2: e.message });
+      console.error('❌ Upload Error:', {
+        message: e.message,
+        code: e.code,
+        stack: e.stack,
+      });
+      Toast.show({ 
+        type: 'error', 
+        text1: 'Upload Failed', 
+        text2: e.message || 'Check your internet connection and try again' 
+      });
     } finally { setLoading(false); }
   };
 
@@ -259,10 +290,14 @@ export default function UploadNoteScreen() {
         <TextInput style={styles.input} placeholder="e.g. java, oop, midterm" placeholderTextColor={Colors.textMuted} value={tags} onChangeText={setTags} />
 
         <Text style={styles.label}>File *</Text>
-        <TouchableOpacity style={styles.filePicker} onPress={pickFile}>
+        <TouchableOpacity 
+          style={[styles.filePicker, isPickingDocument && { opacity: 0.6 }]} 
+          onPress={pickFile}
+          disabled={isPickingDocument}
+        >
           <Ionicons name="attach-outline" size={22} color={Colors.primary} />
           <Text style={styles.filePickerText} numberOfLines={1}>
-            {file ? file.name : 'Tap to select PDF, Image, or DOCX'}
+            {isPickingDocument ? 'Selecting file...' : (file ? file.name : 'Tap to select PDF, Image, or DOCX')}
           </Text>
         </TouchableOpacity>
         <Text style={styles.fileHint}>

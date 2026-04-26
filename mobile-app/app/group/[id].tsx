@@ -101,6 +101,7 @@ export default function GroupDetailScreen() {
   const [leaveConfirmationVisible, setLeaveConfirmationVisible] = useState(false);
   const [deleteConfirmationVisible, setDeleteConfirmationVisible] = useState(false);
   const [attachmentPickerVisible, setAttachmentPickerVisible] = useState(false);
+  const [isPickingDocument, setIsPickingDocument] = useState(false);
   const [memberActionConfirmation, setMemberActionConfirmation] = useState<{
     userId: string;
     memberName: string;
@@ -332,31 +333,44 @@ export default function GroupDetailScreen() {
   };
 
   const pickDocumentAttachment = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'image/*',
-      ],
-      copyToCacheDirectory: true,
-    });
+    if (isPickingDocument) return; // Prevent concurrent calls
+    
+    setIsPickingDocument(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/*',
+        ],
+      });
 
-    if (result.canceled || !result.assets?.[0]) {
-      return;
-    }
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
 
-    const file = result.assets[0];
-    const nextAttachment = {
-      uri: file.uri,
-      name: file.name,
-      mimeType: file.mimeType || 'application/octet-stream',
-      size: file.size,
-      kind: getAttachmentKind(file.mimeType, file.name),
-    };
+      const file = result.assets[0];
+      const nextAttachment = {
+        uri: file.uri,
+        name: file.name,
+        mimeType: file.mimeType || 'application/octet-stream',
+        size: file.size,
+        kind: getAttachmentKind(file.mimeType, file.name),
+      };
 
-    if (validateAttachment(nextAttachment)) {
-      setPendingAttachment(nextAttachment);
+      if (validateAttachment(nextAttachment)) {
+        setPendingAttachment(nextAttachment);
+      }
+    } catch (error: any) {
+      console.error('Document picker error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to pick file',
+        text2: error?.message || 'Please try again',
+      });
+    } finally {
+      setIsPickingDocument(false);
     }
   };
 
@@ -880,11 +894,19 @@ export default function GroupDetailScreen() {
             <Text style={styles.modalTitle}>Attach to Message</Text>
             <Text style={styles.modalBody}>Only images, PDFs, and docs are allowed. Maximum size: {MAX_CHAT_ATTACHMENT_FILE_SIZE_MB} MB.</Text>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.button, styles.modalCancel]} onPress={closeAttachmentPicker}>
+              <TouchableOpacity 
+                style={[styles.button, styles.modalCancel]} 
+                onPress={closeAttachmentPicker}
+                disabled={isPickingDocument}
+              >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.modalConfirm, styles.modalDeleteSpacing]} onPress={chooseAttachmentFile}>
-                <Text style={styles.buttonText}>Choose file</Text>
+              <TouchableOpacity 
+                style={[styles.button, styles.modalConfirm, styles.modalDeleteSpacing, isPickingDocument && { opacity: 0.6 }]} 
+                onPress={chooseAttachmentFile}
+                disabled={isPickingDocument}
+              >
+                <Text style={styles.buttonText}>{isPickingDocument ? 'Selecting...' : 'Choose file'}</Text>
               </TouchableOpacity>
             </View>
           </View>

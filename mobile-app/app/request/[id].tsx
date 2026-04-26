@@ -62,6 +62,7 @@ export default function RequestDetailScreen() {
   const [fulfillDescription, setFulfillDescription] = useState('');
   const [fulfillSubmitting, setFulfillSubmitting] = useState(false);
   const [openingFulfillment, setOpeningFulfillment] = useState(false);
+  const [isPickingDocument, setIsPickingDocument] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -159,40 +160,53 @@ export default function RequestDetailScreen() {
   };
 
   const pickFulfillmentFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: [
-        'application/pdf',
-        'image/*',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ],
-      copyToCacheDirectory: true,
-    });
+    if (isPickingDocument) return; // Prevent concurrent calls
+    
+    setIsPickingDocument(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'image/*',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+      });
 
-    if (result.canceled || !result.assets?.[0]) {
-      return;
-    }
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
 
-    const selectedFile = result.assets[0];
-    if (!isAllowedRequestFile(selectedFile.mimeType, selectedFile.name)) {
+      const selectedFile = result.assets[0];
+      if (!isAllowedRequestFile(selectedFile.mimeType, selectedFile.name)) {
+        Toast.show({
+          type: 'error',
+          text1: 'Unsupported file type',
+          text2: 'Only PDF, Word documents, JPG, PNG, GIF, and WEBP files are allowed.',
+        });
+        return;
+      }
+
+      if (selectedFile.size && selectedFile.size > MAX_REQUEST_FILE_SIZE_BYTES) {
+        Toast.show({
+          type: 'error',
+          text1: 'File too large',
+          text2: `Maximum request attachment size is ${MAX_REQUEST_FILE_SIZE_MB} MB.`,
+        });
+        return;
+      }
+
+      setFulfillFile(selectedFile);
+    } catch (error: any) {
+      console.error('Document picker error:', error);
       Toast.show({
         type: 'error',
-        text1: 'Unsupported file type',
-        text2: 'Only PDF, Word documents, JPG, PNG, GIF, and WEBP files are allowed.',
+        text1: 'Failed to pick file',
+        text2: error?.message || 'Please try again',
       });
-      return;
+    } finally {
+      setIsPickingDocument(false);
     }
-
-    if (selectedFile.size && selectedFile.size > MAX_REQUEST_FILE_SIZE_BYTES) {
-      Toast.show({
-        type: 'error',
-        text1: 'File too large',
-        text2: `Maximum request attachment size is ${MAX_REQUEST_FILE_SIZE_MB} MB.`,
-      });
-      return;
-    }
-
-    setFulfillFile(selectedFile);
   };
 
   const submitFulfillment = async () => {
@@ -539,10 +553,14 @@ export default function RequestDetailScreen() {
               Upload a PDF, Word document, or image. Max {MAX_REQUEST_FILE_SIZE_MB} MB.
             </Text>
 
-            <TouchableOpacity style={styles.filePicker} onPress={pickFulfillmentFile}>
+            <TouchableOpacity 
+              style={[styles.filePicker, isPickingDocument && { opacity: 0.6 }]} 
+              onPress={pickFulfillmentFile}
+              disabled={isPickingDocument}
+            >
               <Ionicons name="attach-outline" size={20} color={Colors.primary} />
               <Text style={styles.filePickerText} numberOfLines={1}>
-                {fulfillFile ? fulfillFile.name : 'Tap to select a file'}
+                {isPickingDocument ? 'Selecting file...' : (fulfillFile ? fulfillFile.name : 'Tap to select a file')}
               </Text>
             </TouchableOpacity>
 
