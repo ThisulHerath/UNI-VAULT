@@ -181,7 +181,7 @@ export default function CollectionsScreen() {
           <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
           <View style={styles.badgeRow}>
             {item.courseCode ? <Text style={styles.badge}>{item.courseCode}</Text> : null}
-            <Text style={styles.badge}>{formatPriorityLabel(item.priority)}</Text>
+            <Text style={[styles.badge, { color: borderColor, backgroundColor: `${borderColor}15` }]}>{formatPriorityLabel(item.priority)}</Text>
             {targetLabel ? <Text style={styles.badge}>{targetLabel}</Text> : null}
           </View>
           <Text style={styles.meta}>{totalCount} Saved Items {item.isPrivate ? '' : '• Public'}</Text>
