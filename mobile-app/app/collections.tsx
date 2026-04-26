@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   exploreTitle: { fontSize: FontSizes.md, fontWeight: '800', color: Colors.primary },
   exploreDesc: { fontSize: FontSizes.xs, color: Colors.primary, marginTop: 2, opacity: 0.8 },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: Spacing.md, height: 46, marginBottom: Spacing.md },
-  searchInput: { flex: 1, color: Colors.text, fontSize: FontSizes.md },
+  searchInput: { flex: 1, color: Colors.text, fontSize: FontSizes.md, paddingVertical: 8 },
   
   filterGroup: { flexDirection: 'row', gap: 6, marginRight: Spacing.md, borderRightWidth: 1, borderRightColor: '#BFDBFE', paddingRight: Spacing.md },
   filterBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#BFDBFE' },
