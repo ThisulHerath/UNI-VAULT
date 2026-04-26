@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import Toast from 'react-native-toast-message';
 
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { appToastConfig } from '../components/ui/app-toast';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,7 +29,7 @@ function RootLayoutInner() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="light" />
-      <Toast />
+      <Toast config={appToastConfig} position="top" topOffset={56} />
     </ThemeProvider>
   );
 }
