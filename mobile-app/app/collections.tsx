@@ -13,7 +13,7 @@ type FilterOption = 'all' | 'low' | 'normal' | 'high';
 
 const PRIORITY_OPTIONS: CollectionPriority[] = ['low', 'normal', 'high'];
 
-const formatPriorityLabel = (priority?: string | null) => {
+const formatPriorityLabel = (priority?: string | null): string => {
   if (!priority) return 'Normal';
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 };
