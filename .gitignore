@@ -44,3 +44,5 @@ mobile-app/*.pem
 # Generated native folders (Expo prebuild)
 mobile-app/ios/
 mobile-app/android/
+
+prompt.md

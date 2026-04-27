@@ -308,7 +308,7 @@ export default function UploadNoteScreen() {
         <TouchableOpacity style={[styles.uploadBtn, loading && { opacity: 0.65 }]} onPress={handleUpload} disabled={loading}>
           {loading ? <ActivityIndicator color={Colors.text} /> : <>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.text} />
-            <Text style={styles.uploadBtnText}>Upload to MongoDB</Text>
+            <Text style={styles.uploadBtnText}>Upload Note</Text>
           </>}
         </TouchableOpacity>
       </View>

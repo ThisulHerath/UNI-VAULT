@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, RefreshControl,
+  TextInput, ActivityIndicator, RefreshControl, Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -15,21 +16,40 @@ import {
   saveNoteToCollections,
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
-import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+
+const { width } = Dimensions.get('window');
+
+// Premium Dark Theme Constants
+const C = {
+  bg: '#0A0705',
+  surface: '#130F0C',
+  surfaceAlt: '#1A1410',
+  border: '#2A1F18',
+  primary: '#C8392B',
+  primaryLight: '#E8503F',
+  accent: '#F5A623',
+  text: '#F5EDE8',
+  textMuted: '#8A7060',
+  textDim: '#5A4030',
+  placeholder: '#4A3020',
+  inputBg: '#160E0A',
+  star: '#F5A623',
+};
 
 const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
 
 export default function NotesScreen() {
   const { user } = useAuth();
   const { showDialog, dialogElement } = useAppDialog();
-  const [notes, setNotes]         = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch]       = useState('');
-  const [page, setPage]           = useState(1);
-  const [hasMore, setHasMore]     = useState(true);
-  const [savedMap, setSavedMap]   = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const fetchNotes = useCallback(async (pageNum = 1, searchVal = search, reset = false) => {
     try {
@@ -50,19 +70,16 @@ export default function NotesScreen() {
 
   useEffect(() => {
     let mounted = true;
-
     const syncSavedMap = async () => {
       if (!user?._id) {
         if (mounted) setSavedMap({});
         return;
       }
-
       const noteIds = notes.map((note) => String(note?._id || '')).filter(Boolean);
       if (!noteIds.length) {
         if (mounted) setSavedMap({});
         return;
       }
-
       try {
         const nextMap = await getSavedStateMapForNotes(noteIds);
         if (mounted) setSavedMap(nextMap);
@@ -70,32 +87,24 @@ export default function NotesScreen() {
         if (mounted) setSavedMap({});
       }
     };
-
     syncSavedMap();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [notes, user?._id]);
 
   const onRefresh = () => { setRefreshing(true); fetchNotes(1, search, true); };
-  const onSearch  = () => { setLoading(true); fetchNotes(1, search, true); };
-  const loadMore  = () => { if (hasMore && !loading) fetchNotes(page + 1); };
+  const onSearch = () => { setLoading(true); fetchNotes(1, search, true); };
+  const loadMore = () => { if (hasMore && !loading) fetchNotes(page + 1); };
 
   const toggleSave = (item: any) => {
     const noteId = String(item?._id || '');
     if (!noteId) return;
-
     if (!user?._id) {
-      showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
-        { label: 'Okay', role: 'default' },
-      ]);
+      showDialog('Sign In Required', 'Please sign in to save notes.', [{ label: 'Okay', role: 'default' }]);
       return;
     }
-
     if (savingNoteId) return;
 
     const isSaved = !!savedMap[noteId];
-
     if (!isSaved) {
       showDialog('Save Note', 'Save this note to your collections?', [
         { label: 'Not Now', role: 'cancel' },
@@ -106,15 +115,9 @@ export default function NotesScreen() {
               setSavingNoteId(noteId);
               const result = await saveNoteToCollections(noteId);
               setSavedMap((prev) => ({ ...prev, [noteId]: true }));
-              Toast.show({
-                type: 'success',
-                text1: 'Saved to Collection',
-                text2: result.createdCollection
-                  ? `Created ${result.collectionName} and saved this note.`
-                  : `Saved to ${result.collectionName}.`,
-              });
+              Toast.show({ type: 'success', text1: 'Saved', text2: `Saved to ${result.collectionName}.` });
             } catch (error: any) {
-              Toast.show({ type: 'error', text1: 'Save Failed', text2: error?.message || 'Unable to save this note.' });
+              Toast.show({ type: 'error', text1: 'Save Failed', text2: error?.message });
             } finally {
               setSavingNoteId(null);
             }
@@ -124,7 +127,7 @@ export default function NotesScreen() {
       return;
     }
 
-    showDialog('Remove Saved Note', 'Remove this note from your saved collections?', [
+    showDialog('Remove Saved Note', 'Remove from your collections?', [
       { label: 'Cancel', role: 'cancel' },
       {
         label: 'Remove',
@@ -135,19 +138,13 @@ export default function NotesScreen() {
             const state = await getNoteSaveState(noteId);
             if (!state.collectionCount) {
               setSavedMap((prev) => ({ ...prev, [noteId]: false }));
-              Toast.show({ type: 'error', text1: 'Already Removed', text2: 'This note is not in your collections anymore.' });
               return;
             }
-
             const removedCount = await removeNoteFromAllCollections(noteId);
             setSavedMap((prev) => ({ ...prev, [noteId]: false }));
-            Toast.show({
-              type: 'success',
-              text1: 'Removed from Collections',
-              text2: `Removed from ${removedCount} collection${removedCount === 1 ? '' : 's'}.`,
-            });
+            Toast.show({ type: 'success', text1: 'Removed', text2: `Removed from ${removedCount} collections.` });
           } catch (error: any) {
-            Toast.show({ type: 'error', text1: 'Remove Failed', text2: error?.message || 'Unable to remove this note.' });
+            Toast.show({ type: 'error', text1: 'Remove Failed', text2: error?.message });
           } finally {
             setSavingNoteId(null);
           }
@@ -162,128 +159,184 @@ export default function NotesScreen() {
     const isBusy = savingNoteId === noteId;
 
     return (
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.cardLeft} onPress={() => router.push(`/note/${item._id}`)}>
-          <View style={styles.iconBox}>
-            <Ionicons
-              name={item.fileType === 'pdf' ? 'document-text' : item.fileType === 'image' ? 'image' : 'document'}
-              size={22} color={Colors.primary}
-            />
+      <View style={s.card}>
+        <TouchableOpacity style={s.cardLeft} onPress={() => router.push(`/note/${item._id}`)} activeOpacity={0.7}>
+          <View style={s.iconBox}>
+            <LinearGradient colors={[C.surfaceAlt, C.border]} style={s.iconGrad}>
+              <Ionicons
+                name={item.fileType === 'pdf' ? 'document-text' : item.fileType === 'image' ? 'image' : 'document'}
+                size={22} color={C.primary}
+              />
+            </LinearGradient>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.cardMeta} numberOfLines={1}>
+            <Text style={s.cardTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={s.cardMeta} numberOfLines={1}>
               {getNoteSubjectLabel(item)} · {item.uploadedBy?.name || 'Unknown'}
             </Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={12} color={Colors.star} />
-              <Text style={styles.ratingText}>{item.averageRating?.toFixed(1) || '0.0'} ({item.totalReviews || 0})</Text>
+            <View style={s.ratingRow}>
+              <Ionicons name="star" size={12} color={C.star} />
+              <Text style={s.ratingText}>{item.averageRating?.toFixed(1) || '0.0'} ({item.totalReviews || 0})</Text>
             </View>
           </View>
         </TouchableOpacity>
 
-        <View style={styles.rightActions}>
+        <View style={s.rightActions}>
           <TouchableOpacity
-            style={[styles.saveBtn, isBusy && { opacity: 0.7 }]}
+            style={[s.saveBtn, isBusy && { opacity: 0.7 }]}
             onPress={() => toggleSave(item)}
             disabled={isBusy}
           >
             {isBusy ? (
-              <ActivityIndicator size="small" color={Colors.text} />
+              <ActivityIndicator size="small" color={C.primary} />
             ) : (
-              <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={18} color={Colors.text} />
+              <Ionicons 
+                name={isSaved ? 'bookmark' : 'bookmark-outline'} 
+                size={18} 
+                color={isSaved ? C.primary : C.textDim} 
+              />
             )}
           </TouchableOpacity>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          <Ionicons name="chevron-forward" size={18} color={C.textDim} />
         </View>
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.pageTitle}>📄 Notes</Text>
-        <TouchableOpacity style={styles.fab} onPress={() => router.push('/note/upload')}>
-          <Ionicons name="add" size={22} color={Colors.text} />
+      <View style={s.header}>
+        <Text style={s.pageTitle}>Notes</Text>
+        <TouchableOpacity style={s.fab} onPress={() => router.push('/note/upload')} activeOpacity={0.8}>
+          <LinearGradient colors={[C.primaryLight, C.primary]} style={s.fabGrad}>
+            <Ionicons name="add" size={24} color="#fff" />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search notes, tags..."
-          placeholderTextColor={Colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-          onSubmitEditing={onSearch}
-          returnKeyType="search"
-        />
-        <TouchableOpacity style={styles.searchBtn} onPress={onSearch}>
-          <Ionicons name="search" size={18} color={Colors.text} />
-        </TouchableOpacity>
-      </View>
-
-      {loading && notes.length === 0
-        ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
-        : <FlatList
-            data={notes}
-            keyExtractor={i => i._id}
-            renderItem={renderItem}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-            onEndReached={loadMore}
-            onEndReachedThreshold={0.4}
-            contentContainerStyle={{ padding: Spacing.md, paddingTop: 4 }}
-            ListEmptyComponent={<Text style={styles.empty}>No notes found. Upload the first one!</Text>}
-            ListFooterComponent={hasMore ? <ActivityIndicator color={Colors.primary} style={{ padding: Spacing.md }} /> : null}
+      {/* Search Bar Upgrade */}
+      <View style={s.searchContainer}>
+        <View style={[s.searchRow, isSearchFocused && s.searchRowFocused]}>
+          <Ionicons name="search" size={18} color={isSearchFocused ? C.primary : C.textDim} style={s.searchIcon} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search notes, subjects, tags..."
+            placeholderTextColor={C.placeholder}
+            value={search}
+            onChangeText={setSearch}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            onSubmitEditing={onSearch}
+            returnKeyType="search"
           />
-      }
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearch(''); fetchNotes(1, '', true); }}>
+              <Ionicons name="close-circle" size={18} color={C.textDim} style={{ marginRight: 8 }} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {loading && notes.length === 0 ? (
+        <View style={s.loaderContainer}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={notes}
+          keyExtractor={i => i._id}
+          renderItem={renderItem}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          contentContainerStyle={s.listContent}
+          ListEmptyComponent={
+            <View style={s.emptyWrap}>
+              <Ionicons name="document-outline" size={48} color={C.border} />
+              <Text style={s.emptyText}>No notes found matching your search.</Text>
+            </View>
+          }
+          ListFooterComponent={
+            hasMore ? <ActivityIndicator color={C.primary} style={{ padding: 20 }} /> : <View style={{ height: 20 }} />
+          }
+        />
+      )}
 
       {dialogElement}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.background },
-  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm },
-  pageTitle:   { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
-  fab: {
-    width: 38, height: 38, borderRadius: Radius.full, backgroundColor: Colors.primary,
-    justifyContent: 'center', alignItems: 'center',
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  
+  // Header
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingTop: 60, 
+    paddingBottom: 15 
   },
-  searchRow:   { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  searchInput: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.md,
-    padding: Spacing.sm, color: Colors.text, fontSize: FontSizes.md,
-    borderWidth: 1, borderColor: Colors.border,
+  pageTitle: { fontSize: 28, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
+  fab: { width: 44, height: 44, borderRadius: 14, overflow: 'hidden', elevation: 4 },
+  fabGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Search Section
+  searchContainer: { paddingHorizontal: 20, marginBottom: 15 },
+  searchRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: C.inputBg, 
+    borderRadius: 15, 
+    borderWidth: 1, 
+    borderColor: C.border,
+    paddingHorizontal: 12,
+    height: 50
   },
-  searchBtn: {
-    backgroundColor: Colors.primary, borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md, justifyContent: 'center', marginLeft: 6,
-  },
+  searchRowFocused: { borderColor: C.primary + '80', backgroundColor: C.surface },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, color: C.text, fontSize: 15, fontWeight: '500' },
+
+  // List & Cards
+  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
   card: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
-    borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: C.surface,
+    borderRadius: 18, 
+    padding: 14, 
+    marginBottom: 12,
+    borderWidth: 1, 
+    borderColor: C.border,
   },
-  cardLeft:  { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: Spacing.sm },
+  cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  iconBox: { width: 48, height: 48, borderRadius: 12, overflow: 'hidden', marginRight: 15 },
+  iconGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 4 },
+  cardMeta: { fontSize: 12, color: C.textMuted, fontWeight: '500' },
+  
+  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
+  ratingText: { fontSize: 11, color: C.star, marginLeft: 4, fontWeight: '600' },
+
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   saveBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.secondary,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: C.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  iconBox:   { width: 44, height: 44, borderRadius: Radius.sm, backgroundColor: Colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
-  cardTitle: { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text },
-  cardMeta:  { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  ratingText:{ fontSize: FontSizes.xs, color: Colors.star, marginLeft: 3 },
-  empty:     { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
-});
 
+  // Empty State
+  emptyWrap: { alignItems: 'center', marginTop: 100 },
+  emptyText: { textAlign: 'center', color: C.textDim, marginTop: 15, fontSize: 15, fontWeight: '500', paddingHorizontal: 40 },
+});

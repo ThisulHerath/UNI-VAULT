@@ -26,6 +26,27 @@ export default function CollectionDetailScreen() {
   const [removingNoteId, setRemovingNoteId] = useState<string | null>(null);
   const [removingFulfillmentId, setRemovingFulfillmentId] = useState<string | null>(null);
 
+  const getItemKey = (item: any, fallbackPrefix: string, index: number) => {
+    const id = item?._id || item?.id || (typeof item === 'string' ? item : null);
+    return id ? String(id) : `${fallbackPrefix}-${index}`;
+  };
+
+  const getSavedNoteSubjectLabel = (item: any) => {
+    const subject = item?.subject;
+
+    if (subject && typeof subject === 'object') {
+      if (subject.name) return subject.name;
+      if (subject.code) return subject.code;
+    }
+
+    if (typeof subject === 'string' && subject.trim()) return subject;
+    if (typeof item?.subjectText === 'string' && item.subjectText.trim()) return item.subjectText;
+    if (typeof item?.subjectLabel === 'string' && item.subjectLabel.trim()) return item.subjectLabel;
+    if (typeof item?.subjectName === 'string' && item.subjectName.trim()) return item.subjectName;
+
+    return 'No subject';
+  };
+
   const loadCollection = useCallback(async (showRefresh = false) => {
     if (!id) return;
 
@@ -211,7 +232,7 @@ export default function CollectionDetailScreen() {
         <TouchableOpacity style={styles.noteInfo} onPress={() => router.push(`/note/${noteId}`)}>
           <Text style={styles.noteTitle} numberOfLines={1}>{item.title || 'Untitled note'}</Text>
           <Text style={styles.noteMeta} numberOfLines={1}>
-            {item.subject?.name || item.subjectText || 'No subject'}
+            {getSavedNoteSubjectLabel(item)}
           </Text>
         </TouchableOpacity>
 
@@ -316,10 +337,22 @@ export default function CollectionDetailScreen() {
         }
       >
         <Text style={styles.sectionTitle}>Saved Notes</Text>
-        {notes.length ? notes.map((item: any) => renderNote({ item })) : <Text style={styles.emptyText}>No notes in this collection yet.</Text>}
+        {notes.length
+          ? notes.map((item: any, index: number) => (
+            <View key={getItemKey(item, 'note', index)}>
+              {renderNote({ item })}
+            </View>
+          ))
+          : <Text style={styles.emptyText}>No notes in this collection yet.</Text>}
 
         <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Saved Fulfillments</Text>
-        {fulfillments.length ? fulfillments.map((item: any) => renderFulfillment(item)) : <Text style={styles.emptyText}>No fulfilled attachments saved yet.</Text>}
+        {fulfillments.length
+          ? fulfillments.map((item: any, index: number) => (
+            <View key={getItemKey(item, 'fulfillment', index)}>
+              {renderFulfillment(item)}
+            </View>
+          ))
+          : <Text style={styles.emptyText}>No fulfilled attachments saved yet.</Text>}
       </ScrollView>
 
       {dialogElement}

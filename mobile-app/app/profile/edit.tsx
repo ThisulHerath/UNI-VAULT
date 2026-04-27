@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import {
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image, Dimensions,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -8,19 +12,33 @@ import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
+const { width } = Dimensions.get('window');
+
+const C = {
+  bg: '#0A0705',
+  surface: '#130F0C',
+  surfaceAlt: '#1A1410',
+  border: '#2A1F18',
+  primary: '#C8392B',
+  primaryLight: '#E8503F',
+  accent: '#F5A623',
+  text: '#F5EDE8',
+  textMuted: '#8A7060',
+  textDim: '#5A4030',
+  placeholder: '#4A3020',
+  inputBg: '#160E0A',
+};
+
 export default function EditProfileScreen() {
   const { user, updateUser } = useAuth();
   const [formData, setFormData] = useState({ name: '', university: '', batch: '' });
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      setFormData({
-        name: user.name || '',
-        university: user.university || '',
-        batch: user.batch || '',
-      });
+      setFormData({ name: user.name || '', university: user.university || '', batch: user.batch || '' });
       setAvatarUri(user.avatar || null);
     }
   }, [user]);
@@ -32,8 +50,7 @@ export default function EditProfileScreen() {
       aspect: [1, 1],
       quality: 0.8,
     });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets?.length > 0) {
       setAvatarUri(result.assets[0].uri);
     }
   };
@@ -45,19 +62,12 @@ export default function EditProfileScreen() {
       data.append('name', formData.name);
       data.append('university', formData.university);
       data.append('batch', formData.batch);
-
       if (avatarUri && !avatarUri.startsWith('http')) {
         const filename = avatarUri.split('/').pop() || 'avatar.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : `image/jpeg`;
-
-        data.append('avatar', {
-          uri: avatarUri,
-          name: filename,
-          type,
-        } as any);
+        data.append('avatar', { uri: avatarUri, name: filename, type } as any);
       }
-
       const res = await authService.updateProfile(data);
       if (res.success && res.data) {
         updateUser(res.data);
@@ -71,87 +81,146 @@ export default function EditProfileScreen() {
     }
   };
 
+  const fields = [
+    { key: 'name', label: 'Full Name', placeholder: 'John Doe', icon: 'person-outline' },
+    { key: 'university', label: 'University', placeholder: 'e.g. University of Colombo', icon: 'business-outline' },
+    { key: 'batch', label: 'Batch / Year', placeholder: 'e.g. SE2020', icon: 'calendar-outline' },
+  ];
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: Spacing.sm }}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color={C.text} />
         </TouchableOpacity>
-        <Text style={styles.pageTitle}>Edit Profile</Text>
+        <Text style={s.headerTitle}>Edit Profile</Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.avatarSection}>
-          <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={40} color={Colors.background} />
-              </View>
-            )}
-            <View style={styles.editBadge}>
-              <Ionicons name="camera" size={16} color={Colors.background} />
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+        {/* Avatar picker */}
+        <View style={s.avatarSection}>
+          <View style={s.avatarOuter}>
+            <View style={s.avatarRing}>
+              <TouchableOpacity onPress={pickImage} style={s.avatarTouch} activeOpacity={0.85}>
+                {avatarUri
+                  ? <Image source={{ uri: avatarUri }} style={s.avatarImg} />
+                  : (
+                    <LinearGradient colors={[C.primaryLight, C.primary, '#7A1A10']} style={s.avatarImg}>
+                      <Ionicons name="person" size={38} color="#fff" />
+                    </LinearGradient>
+                  )
+                }
+                {/* Camera overlay */}
+                <View style={s.cameraOverlay}>
+                  <Ionicons name="camera" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-          <Text style={styles.avatarHint}>Tap to change</Text>
+          </View>
+          <Text style={s.avatarHint}>Tap to change photo</Text>
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="John Doe"
-            placeholderTextColor={Colors.textMuted}
-            value={formData.name}
-            onChangeText={(t) => setFormData({ ...formData, name: t })}
-          />
+        {/* Form fields */}
+        <View style={s.form}>
+          {fields.map((field) => {
+            const isFocused = focusedField === field.key;
+            return (
+              <View key={field.key} style={s.fieldWrap}>
+                <Text style={s.fieldLabel}>{field.label}</Text>
+                <View style={[s.inputRow, isFocused && s.inputRowFocused]}>
+                  <View style={[s.inputIconWrap, isFocused && s.inputIconFocused]}>
+                    <Ionicons name={field.icon as any} size={16} color={isFocused ? C.primary : C.textDim} />
+                  </View>
+                  <TextInput
+                    style={s.input}
+                    placeholder={field.placeholder}
+                    placeholderTextColor={C.placeholder}
+                    value={(formData as any)[field.key]}
+                    onChangeText={(t) => setFormData({ ...formData, [field.key]: t })}
+                    onFocus={() => setFocusedField(field.key)}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  {(formData as any)[field.key]?.length > 0 && (
+                    <Ionicons name="checkmark-circle" size={16} color={C.primary + '80'} style={{ marginRight: 12 }} />
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>University</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. University of Colombo"
-            placeholderTextColor={Colors.textMuted}
-            value={formData.university}
-            onChangeText={(t) => setFormData({ ...formData, university: t })}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Batch/Year</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. SE2020"
-            placeholderTextColor={Colors.textMuted}
-            value={formData.batch}
-            onChangeText={(t) => setFormData({ ...formData, batch: t })}
-          />
-        </View>
-
-        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
-          {loading ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>Save Changes</Text>}
+        {/* Save button */}
+        <TouchableOpacity
+          style={[s.saveBtn, loading && { opacity: 0.65 }]}
+          onPress={handleSave}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <LinearGradient colors={[C.primaryLight, C.primary]} style={s.saveBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : (
+                <>
+                  <Ionicons name="checkmark" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={s.saveBtnText}>Save Changes</Text>
+                </>
+              )
+            }
+          </LinearGradient>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.cancelBtn} onPress={() => router.back()}>
+          <Text style={s.cancelBtnText}>Discard Changes</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  pageTitle: { fontSize: FontSizes.xl, fontWeight: '700', color: Colors.text },
-  content: { padding: Spacing.md },
-  avatarSection: { alignItems: 'center', marginBottom: Spacing.lg },
-  avatarContainer: { position: 'relative' },
-  avatarImage: { width: 100, height: 100, borderRadius: 50 },
-  avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-  editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: Colors.primary, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.background },
-  avatarHint: { fontSize: FontSizes.sm, color: Colors.textMuted, marginTop: Spacing.sm },
-  formGroup: { marginBottom: Spacing.md },
-  label: { fontSize: FontSizes.sm, color: Colors.textMuted, marginBottom: Spacing.xs, fontWeight: '600' },
-  input: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: Spacing.md, color: Colors.text, fontSize: FontSizes.md },
-  button: { backgroundColor: Colors.primary, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.lg },
-  buttonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' }
+const s = StyleSheet.create({
+  container:      { flex: 1, backgroundColor: C.bg },
+
+  header:         {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 58, paddingBottom: 14,
+    backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  backBtn:        { width: 36, height: 36, borderRadius: 10, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
+  headerTitle:    { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: 0.2 },
+
+  content:        { padding: 20, paddingBottom: 40 },
+
+  // Avatar
+  avatarSection:  { alignItems: 'center', marginTop: 8, marginBottom: 28 },
+  avatarOuter:    { padding: 4, borderRadius: 58, borderWidth: 1.5, borderColor: C.primary + '50', borderStyle: 'dashed' },
+  avatarRing:     { padding: 3, borderRadius: 54, borderWidth: 2, borderColor: C.primary + '40', backgroundColor: C.bg },
+  avatarTouch:    { width: 96, height: 96, borderRadius: 48, overflow: 'hidden', position: 'relative' },
+  avatarImg:      { width: 96, height: 96, justifyContent: 'center', alignItems: 'center' },
+  cameraOverlay:  {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 34,
+    backgroundColor: '#00000088', justifyContent: 'center', alignItems: 'center',
+  },
+  avatarHint:     { fontSize: 12, color: C.textMuted, marginTop: 10, fontWeight: '500' },
+
+  // Form
+  form:           { gap: 4 },
+  fieldWrap:      { marginBottom: 14 },
+  fieldLabel:     { fontSize: 12, color: C.textMuted, fontWeight: '700', marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' },
+  inputRow:       { flexDirection: 'row', alignItems: 'center', backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border, borderRadius: 12 },
+  inputRowFocused:{ borderColor: C.primary + '80', backgroundColor: C.surface },
+  inputIconWrap:  { width: 42, justifyContent: 'center', alignItems: 'center' },
+  inputIconFocused:{},
+  input:          { flex: 1, paddingVertical: 14, paddingRight: 12, fontSize: 15, color: C.text },
+
+  // Buttons
+  saveBtn:        { borderRadius: 14, overflow: 'hidden', marginTop: 28 },
+  saveBtnGrad:    { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 15 },
+  saveBtnText:    { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  cancelBtn:      { alignItems: 'center', paddingVertical: 14 },
+  cancelBtnText:  { color: C.textMuted, fontSize: 14, fontWeight: '600' },
 });

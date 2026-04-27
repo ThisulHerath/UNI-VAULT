@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, Dimensions, Image
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -12,7 +16,24 @@ import {
   saveNoteToCollections,
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
-import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+
+const { width } = Dimensions.get('window');
+
+// Matching the theme colors from your previous screen
+const C = {
+  bg: '#0A0705',
+  surface: '#130F0C',
+  surfaceAlt: '#1A1410',
+  border: '#2A1F18',
+  primary: '#C8392B',
+  primaryLight: '#E8503F',
+  accent: '#F5A623',
+  text: '#F5EDE8',
+  textMuted: '#8A7060',
+  textDim: '#5A4030',
+  placeholder: '#4A3020',
+  inputBg: '#160E0A',
+};
 
 const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
 
@@ -45,19 +66,16 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let mounted = true;
-
     const syncSavedMap = async () => {
       if (!user?._id) {
         if (mounted) setSavedMap({});
         return;
       }
-
       const noteIds = recentNotes.map((note) => String(note?._id || '')).filter(Boolean);
       if (!noteIds.length) {
         if (mounted) setSavedMap({});
         return;
       }
-
       try {
         const nextMap = await getSavedStateMapForNotes(noteIds);
         if (mounted) setSavedMap(nextMap);
@@ -65,28 +83,22 @@ export default function HomeScreen() {
         if (mounted) setSavedMap({});
       }
     };
-
     syncSavedMap();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [recentNotes, user?._id]);
 
   const toggleSave = (item: any) => {
     const noteId = String(item?._id || '');
     if (!noteId) return;
-
     if (!user?._id) {
       showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
         { label: 'Okay', role: 'default' },
       ]);
       return;
     }
-
     if (savingNoteId) return;
 
     const isSaved = !!savedMap[noteId];
-
     if (!isSaved) {
       showDialog('Save Note', 'Save this note to your collections?', [
         { label: 'Not Now', role: 'cancel' },
@@ -129,7 +141,6 @@ export default function HomeScreen() {
               Toast.show({ type: 'error', text1: 'Already Removed', text2: 'This note is not in your collections anymore.' });
               return;
             }
-
             const removedCount = await removeNoteFromAllCollections(noteId);
             setSavedMap((prev) => ({ ...prev, [noteId]: false }));
             Toast.show({
@@ -148,137 +159,181 @@ export default function HomeScreen() {
   };
 
   const QuickAction = ({ icon, label, onPress }: any) => (
-    <TouchableOpacity style={styles.qaCard} onPress={onPress}>
-      <Ionicons name={icon} size={26} color={Colors.primary} />
-      <Text style={styles.qaLabel}>{label}</Text>
+    <TouchableOpacity style={s.qaCard} onPress={onPress} activeOpacity={0.7}>
+      <View style={s.qaIconWrap}>
+        <Ionicons name={icon} size={22} color={C.primary} />
+      </View>
+      <Text style={s.qaLabel}>{label}</Text>
     </TouchableOpacity>
   );
 
-  const NoteCard = ({ item }: any) => (
-    <View style={styles.noteCard}>
-      <TouchableOpacity style={styles.noteMain} onPress={() => router.push(`/note/${item._id}`)}>
-        <View style={styles.noteIcon}><Ionicons name="document-text" size={20} color={Colors.primary} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.noteMeta}>{getNoteSubjectLabel(item)} • ⭐ {item.averageRating?.toFixed(1) || '0.0'}</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.noteSaveBtn, savingNoteId === String(item._id) && { opacity: 0.7 }]}
-        onPress={() => toggleSave(item)}
-        disabled={savingNoteId === String(item._id)}
-      >
-        {savingNoteId === String(item._id) ? (
-          <ActivityIndicator size="small" color={Colors.text} />
-        ) : (
-          <Ionicons name={savedMap[String(item._id)] ? 'bookmark' : 'bookmark-outline'} size={18} color={Colors.text} />
-        )}
-      </TouchableOpacity>
-    </View>
-  );
-
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
-
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
-          <Text style={styles.sub}>{user?.batch ? `Batch: ${user.batch}` : 'Welcome to UniVault'}</Text>
-        </View>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase()}</Text>
+  const NoteCard = ({ item }: any) => {
+    const isSaved = savedMap[String(item._id)];
+    return (
+      <View style={s.noteCard}>
+        <TouchableOpacity style={s.noteMain} onPress={() => router.push(`/note/${item._id}`)} activeOpacity={0.6}>
+          <View style={s.noteIcon}>
+             <LinearGradient colors={[C.surfaceAlt, C.border]} style={s.iconGrad}>
+                <Ionicons name="document-text" size={20} color={C.primary} />
+             </LinearGradient>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.noteTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={s.noteMeta}>{getNoteSubjectLabel(item)} • ⭐ {item.averageRating?.toFixed(1) || '0.0'}</Text>
           </View>
         </TouchableOpacity>
-      </View>
 
-      {/* Quick Actions */}
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-      <View style={styles.qaRow}>
-        <QuickAction icon="cloud-upload-outline" label="Upload Note"  onPress={() => router.push('/note/upload')} />
-        <QuickAction icon="bookmark-outline"     label="Collections" onPress={() => router.push('/collections')} />
-        <QuickAction icon="people-outline"       label="Groups"      onPress={() => router.push('/(tabs)/groups')} />
-        <QuickAction icon="help-circle-outline"  label="Requests"    onPress={() => router.push('/(tabs)/requests')} />
-      </View>
-
-      {/* Recent Notes */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Notes</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/notes')}>
-          <Text style={styles.seeAll}>See All</Text>
+        <TouchableOpacity
+          style={[s.noteSaveBtn, savingNoteId === String(item._id) && { opacity: 0.7 }]}
+          onPress={() => toggleSave(item)}
+          disabled={savingNoteId === String(item._id)}
+        >
+          {savingNoteId === String(item._id) ? (
+            <ActivityIndicator size="small" color={C.primary} />
+          ) : (
+            <Ionicons 
+              name={isSaved ? 'bookmark' : 'bookmark-outline'} 
+              size={18} 
+              color={isSaved ? C.primary : C.textDim} 
+            />
+          )}
         </TouchableOpacity>
       </View>
-      {recentNotes.length === 0
-        ? <Text style={styles.empty}>No notes yet. Be the first to upload!</Text>
-        : recentNotes.map(item => <NoteCard key={item._id} item={item} />)
-      }
+    );
+  };
 
-      {/* Open Requests */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Open Requests</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/requests')}>
-          <Text style={styles.seeAll}>See All</Text>
-        </TouchableOpacity>
+  if (loading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color={C.primary} />
       </View>
-      {openRequests.length === 0
-        ? <Text style={styles.empty}>No open requests.</Text>
-        : openRequests.map(item => (
-            <TouchableOpacity key={item._id} style={styles.reqCard} onPress={() => router.push(`/request/${item._id}`)}>
-              <Ionicons name="help-buoy-outline" size={18} color={Colors.secondary} style={{ marginRight: 8 }} />
-              <Text style={styles.reqText} numberOfLines={1}>{item.title}</Text>
-            </TouchableOpacity>
-          ))
-      }
+    );
+  }
+
+  return (
+    <View style={s.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+        
+        {/* Header */}
+        <View style={s.header}>
+          <View>
+            <Text style={s.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
+            <Text style={s.sub}>{user?.batch ? `Batch: ${user.batch}` : 'Welcome back to UniVault'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+             <View style={s.avatarOuter}>
+                <View style={s.avatarRing}>
+                  {user?.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={s.avatarImg} />
+                  ) : (
+                    <LinearGradient colors={[C.primaryLight, C.primary]} style={s.avatarImg}>
+                      <Text style={s.avatarText}>{user?.name?.[0]?.toUpperCase()}</Text>
+                    </LinearGradient>
+                  )}
+                </View>
+             </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Actions */}
+        <Text style={s.sectionTitle}>Quick Actions</Text>
+        
+        <View style={s.qaRow}>
+          <QuickAction icon="cloud-upload-outline" label="Upload" onPress={() => router.push('/note/upload')} />
+          <QuickAction icon="bookmark-outline" label="Saved" onPress={() => router.push('/collections')} />
+          <QuickAction icon="people-outline" label="Groups" onPress={() => router.push('/(tabs)/groups')} />
+          <QuickAction icon="help-circle-outline" label="Requests" onPress={() => router.push('/(tabs)/requests')} />
+        </View>
+
+        {/* Recent Notes */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Recent Notes</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/notes')}>
+            <Text style={s.seeAll}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        {recentNotes.length === 0
+          ? <Text style={s.empty}>No notes yet. Be the first to upload!</Text>
+          : recentNotes.map(item => <NoteCard key={item._id} item={item} />)
+        }
+
+        {/* Open Requests */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Open Requests</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/requests')}>
+            <Text style={s.seeAll}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        {openRequests.length === 0
+          ? <Text style={s.empty}>No open requests.</Text>
+          : openRequests.map(item => (
+              <TouchableOpacity key={item._id} style={s.reqCard} onPress={() => router.push(`/request/${item._id}`)} activeOpacity={0.7}>
+                <View style={s.reqIconCircle}>
+                  <Ionicons name="help-buoy-outline" size={16} color={C.accent} />
+                </View>
+                <Text style={s.reqText} numberOfLines={1}>{item.title}</Text>
+                <Ionicons name="chevron-forward" size={16} color={C.textDim} />
+              </TouchableOpacity>
+            ))
+        }
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
       {dialogElement}
-      <View style={{ height: Spacing.xl }} />
-    </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.background, paddingHorizontal: Spacing.md },
-  center:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 56, paddingBottom: Spacing.lg },
-  greeting:    { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
-  sub:         { fontSize: FontSizes.sm, color: Colors.textMuted, marginTop: 2 },
-  avatarPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-  avatarText:  { color: Colors.text, fontWeight: '700', fontSize: FontSizes.lg },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.lg, marginBottom: Spacing.sm },
-  sectionTitle: { fontSize: FontSizes.lg, fontWeight: '700', color: Colors.text, marginTop: Spacing.md, marginBottom: Spacing.sm },
-  seeAll:      { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: '600' },
-  qaRow:       { flexDirection: 'row', justifyContent: 'space-between' },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
+
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  greeting: { fontSize: 24, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
+  sub: { fontSize: 13, color: C.textMuted, fontWeight: '500', marginTop: 2 },
+  
+  avatarOuter: { padding: 3, borderRadius: 25, borderWidth: 1, borderColor: C.border },
+  avatarRing: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.primary + '30' },
+  avatarImg: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: 18 },
+
+  // Sections
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 28, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: C.text, letterSpacing: 0.5, textTransform: 'uppercase' },
+  seeAll: { fontSize: 13, color: C.primary, fontWeight: '700' },
+
+  // Quick Actions
+  qaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 8 },
   qaCard: {
-    flex: 1, marginHorizontal: 4, backgroundColor: Colors.surface, borderRadius: Radius.md,
-    padding: Spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: Colors.border,
+    flex: 1, backgroundColor: C.surface, borderRadius: 16,
+    paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: C.border,
   },
-  qaLabel:     { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 4, textAlign: 'center' },
+  qaIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.inputBg, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: C.border },
+  qaLabel: { fontSize: 11, color: C.textMuted, fontWeight: '700', textAlign: 'center' },
+
+  // Note Cards
   noteCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
-    borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+    borderRadius: 16, padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: C.border,
   },
   noteMain: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  noteSaveBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: Spacing.sm,
-  },
-  noteIcon:    { width: 40, height: 40, borderRadius: Radius.sm, backgroundColor: Colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
-  noteTitle:   { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text },
-  noteMeta:    { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
-  reqCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
-    borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  reqText:     { fontSize: FontSizes.md, color: Colors.text, flex: 1 },
-  empty:       { fontSize: FontSizes.sm, color: Colors.textMuted, textAlign: 'center', paddingVertical: Spacing.md },
-});
+  noteIcon: { width: 48, height: 48, borderRadius: 12, overflow: 'hidden', marginRight: 12 },
+  iconGrad: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  noteTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 4 },
+  noteMeta: { fontSize: 12, color: C.textDim, fontWeight: '500' },
+  noteSaveBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
 
+  // Request Cards
+  reqCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+    borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: C.border,
+  },
+  reqIconCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.accent + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  reqText: { fontSize: 14, color: C.text, flex: 1, fontWeight: '500' },
+  
+  empty: { fontSize: 13, color: C.textDim, textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
+});

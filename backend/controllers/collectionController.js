@@ -61,7 +61,7 @@ exports.getCollectionById = async (req, res, next) => {
     const collection = await Collection.findById(req.params.id)
       .populate({
         path: 'notes',
-        select: 'title fileUrl fileType averageRating totalReviews subject uploadedBy createdAt',
+        select: 'title fileUrl fileType averageRating totalReviews subject subjectText uploadedBy createdAt',
         populate: [
           { path: 'subject',    select: 'name code' },
           { path: 'uploadedBy', select: 'name avatar' },

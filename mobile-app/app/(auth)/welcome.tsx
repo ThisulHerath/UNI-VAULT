@@ -2,169 +2,205 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
-const ACCENT_GOLD = '#D58B2A';
-const ACCENT_CYAN = '#33B7A8';
+const { width, height } = Dimensions.get('window');
+
+const GOLD = '#E8A838';
+const GOLD_DIM = '#C8882A';
+const RED_BRIGHT = '#E8453C';
+const SURFACE_GLOW = '#2A1A0E';
 
 export default function WelcomeScreen() {
   const contentFade = useRef(new Animated.Value(0)).current;
-  const contentRise = useRef(new Animated.Value(28)).current;
-  const orbitA = useRef(new Animated.Value(0)).current;
-  const orbitB = useRef(new Animated.Value(0)).current;
+  const contentRise = useRef(new Animated.Value(40)).current;
+  const badgeFade = useRef(new Animated.Value(0)).current;
+  const badgeScale = useRef(new Animated.Value(0.85)).current;
+  const btnScale1 = useRef(new Animated.Value(0.92)).current;
+  const btnScale2 = useRef(new Animated.Value(0.92)).current;
+  const orb1Y = useRef(new Animated.Value(0)).current;
+  const orb2Y = useRef(new Animated.Value(0)).current;
+  const orb3X = useRef(new Animated.Value(0)).current;
+  const shimmer = useRef(new Animated.Value(0)).current;
+  const pill1 = useRef(new Animated.Value(0)).current;
+  const pill2 = useRef(new Animated.Value(0)).current;
+  const pill3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(contentFade, {
-        toValue: 1,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentRise, {
-        toValue: 0,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
+    // Staggered entrance
+    Animated.sequence([
+      Animated.delay(100),
+      Animated.parallel([
+        Animated.timing(badgeFade, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.spring(badgeScale, { toValue: 1, friction: 6, tension: 120, useNativeDriver: true }),
+      ]),
     ]).start();
 
-    const loopA = Animated.loop(
+    Animated.sequence([
+      Animated.delay(250),
+      Animated.parallel([
+        Animated.timing(contentFade, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(contentRise, { toValue: 0, duration: 600, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    // Pills stagger
+    [pill1, pill2, pill3].forEach((p, i) => {
       Animated.sequence([
-        Animated.timing(orbitA, {
-          toValue: 1,
-          duration: 3200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orbitA, {
-          toValue: 0,
-          duration: 3200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
+        Animated.delay(500 + i * 100),
+        Animated.spring(p, { toValue: 1, friction: 6, tension: 150, useNativeDriver: true }),
+      ]).start();
+    });
 
-    const loopB = Animated.loop(
+    // Buttons bounce in
+    Animated.sequence([
+      Animated.delay(750),
+      Animated.parallel([
+        Animated.spring(btnScale1, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
+        Animated.spring(btnScale2, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    // Floating orbs
+    const floatOrb = (anim: Animated.Value, toY: number, dur: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: toY, duration: dur, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: dur, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ])
+      );
+
+    floatOrb(orb1Y, -22, 3600).start();
+    floatOrb(orb2Y, 18, 4200).start();
+    Animated.loop(
       Animated.sequence([
-        Animated.timing(orbitB, {
-          toValue: 1,
-          duration: 4100,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orbitB, {
-          toValue: 0,
-          duration: 4100,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
+        Animated.timing(orb3X, { toValue: 14, duration: 5100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(orb3X, { toValue: 0, duration: 5100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
-    );
+    ).start();
 
-    loopA.start();
-    loopB.start();
+    // Shimmer on brand text
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
-    return () => {
-      loopA.stop();
-      loopB.stop();
-    };
-  }, [contentFade, contentRise, orbitA, orbitB]);
+  const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
 
-  const orbATranslateY = orbitA.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -18],
-  });
-  const orbATranslateX = orbitA.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 9],
-  });
+  const handlePressIn = (scale: Animated.Value) => {
+    Animated.spring(scale, { toValue: 0.96, friction: 6, tension: 200, useNativeDriver: true }).start();
+  };
+  const handlePressOut = (scale: Animated.Value) => {
+    Animated.spring(scale, { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }).start();
+  };
 
-  const orbBTranslateY = orbitB.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -14],
-  });
-  const orbBTranslateX = orbitB.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -10],
-  });
+  const pillData = [
+    { label: 'Notes', icon: 'document-text-outline', anim: pill1 },
+    { label: 'Reviews', icon: 'star-outline', anim: pill2 },
+    { label: 'Groups', icon: 'people-outline', anim: pill3 },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Background atmosphere */}
       <View style={styles.backdrop}>
-        <Animated.View
-          style={[
-            styles.glow,
-            styles.glowOne,
-            {
-              transform: [{ translateY: orbATranslateY }, { translateX: orbATranslateX }],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.glow,
-            styles.glowTwo,
-            {
-              transform: [{ translateY: orbBTranslateY }, { translateX: orbBTranslateX }],
-            },
-          ]}
-        />
+        {/* Top-right dramatic glow */}
+        <Animated.View style={[styles.orb, styles.orbTopRight, { transform: [{ translateY: orb1Y }] }]} />
+        {/* Bottom-left cool glow */}
+        <Animated.View style={[styles.orb, styles.orbBottomLeft, { transform: [{ translateY: orb2Y }] }]} />
+        {/* Centre accent */}
+        <Animated.View style={[styles.orb, styles.orbCentre, { transform: [{ translateX: orb3X }] }]} />
+        {/* Decorative grid lines */}
+        <View style={styles.gridLine1} />
+        <View style={styles.gridLine2} />
+        {/* Bottom vignette */}
+        <View style={styles.vignette} />
       </View>
 
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: contentFade,
-            transform: [{ translateY: contentRise }],
-          },
-        ]}
-      >
-        <View style={styles.topBadge}>
-          <Text style={styles.topBadgeText}>Collaborative Learning Hub</Text>
-        </View>
+      <View style={styles.content}>
+        {/* Badge */}
+        <Animated.View style={[styles.badge, { opacity: badgeFade, transform: [{ scale: badgeScale }] }]}>
+          <Ionicons name="school-outline" size={11} color={GOLD} style={{ marginRight: 5 }} />
+          <Text style={styles.badgeText}>Collaborative Learning Hub</Text>
+        </Animated.View>
 
-        <View style={styles.heroBlock}>
-          <Text style={styles.brand}>UniVault</Text>
-          <Text style={styles.title}>Study better together.</Text>
+        {/* Hero block */}
+        <Animated.View style={[styles.heroBlock, { opacity: contentFade, transform: [{ translateY: contentRise }] }]}>
+          <Animated.Text style={[styles.brand, { opacity: shimmerOpacity }]}>
+            UniVault
+          </Animated.Text>
+          <Text style={styles.heroLine1}>Study better</Text>
+          <View style={styles.heroAccentRow}>
+            <Text style={styles.heroLine2}>together.</Text>
+            <View style={styles.heroDot} />
+          </View>
           <Text style={styles.subtitle}>
-            Share notes, discover quality resources, and stay productive with your campus community.
+            Share notes, discover quality resources, and stay{'\n'}productive with your campus community.
           </Text>
-        </View>
+        </Animated.View>
 
+        {/* Feature pills */}
         <View style={styles.pillRow}>
-          <View style={styles.pill}><Text style={styles.pillText}>Notes</Text></View>
-          <View style={styles.pill}><Text style={styles.pillText}>Reviews</Text></View>
-          <View style={styles.pill}><Text style={styles.pillText}>Groups</Text></View>
+          {pillData.map(({ label, icon, anim }) => (
+            <Animated.View
+              key={label}
+              style={[styles.pill, { opacity: anim, transform: [{ scale: anim }] }]}
+            >
+              <Ionicons name={icon as any} size={12} color={GOLD_DIM} style={{ marginRight: 4 }} />
+              <Text style={styles.pillText}>{label}</Text>
+            </Animated.View>
+          ))}
         </View>
 
+        {/* CTA Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.button, styles.primaryButton]} 
-            onPress={() => router.push('/(auth)/login')}
-          >
-            <Text style={styles.primaryButtonText}>Sign In</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: btnScale1 }] }}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.push('/(auth)/login')}
+              onPressIn={() => handlePressIn(btnScale1)}
+              onPressOut={() => handlePressOut(btnScale1)}
+              activeOpacity={1}
+            >
+              <View style={styles.primaryButtonInner}>
+                <Text style={styles.primaryButtonText}>Sign In</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 8 }} />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton]} 
-            onPress={() => router.push('/(auth)/register')}
-          >
-            <Text style={styles.secondaryButtonText}>Create Account</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: btnScale2 }] }}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.push('/(auth)/register')}
+              onPressIn={() => handlePressIn(btnScale2)}
+              onPressOut={() => handlePressOut(btnScale2)}
+              activeOpacity={1}
+            >
+              <Text style={styles.secondaryButtonText}>Create Account</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
-        <Text style={styles.footnote}>Built for focused learners across every semester.</Text>
-      </Animated.View>
+        {/* Footnote */}
+        <View style={styles.footnoteRow}>
+          <View style={styles.footnoteDivider} />
+          <Text style={styles.footnote}>Built for focused learners</Text>
+          <View style={styles.footnoteDivider} />
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -172,129 +208,220 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#0E0703',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
-  glow: {
+  orb: {
     position: 'absolute',
-    borderRadius: Radius.full,
+    borderRadius: 9999,
   },
-  glowOne: {
+  orbTopRight: {
+    width: 320,
+    height: 320,
+    top: -120,
+    right: -100,
+    backgroundColor: `${Colors.primary}2E`,
+    // Extra inner core
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 60,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  orbBottomLeft: {
     width: 280,
     height: 280,
-    top: -90,
-    right: -100,
-    backgroundColor: `${Colors.primary}33`,
+    bottom: 80,
+    left: -120,
+    backgroundColor: '#1A4A3A22',
   },
-  glowTwo: {
-    width: 260,
-    height: 260,
-    bottom: 120,
-    left: -110,
-    backgroundColor: `${ACCENT_CYAN}26`,
+  orbCentre: {
+    width: 180,
+    height: 180,
+    top: height * 0.38,
+    right: -60,
+    backgroundColor: `${GOLD}0D`,
+  },
+  gridLine1: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: width * 0.72,
+    width: 1,
+    backgroundColor: '#FFFFFF06',
+  },
+  gridLine2: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: height * 0.55,
+    height: 1,
+    backgroundColor: '#FFFFFF06',
+  },
+  vignette: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 220,
+    backgroundColor: '#0E0703',
+    opacity: 0.7,
   },
   content: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xxl,
-    paddingBottom: Spacing.lg,
-    justifyContent: 'center',
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xl,
+    justifyContent: 'flex-end',
   },
-  topBadge: {
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: `${ACCENT_GOLD}22`,
-    paddingHorizontal: Spacing.sm,
+    backgroundColor: `${GOLD}18`,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radius.full,
-    marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: `${ACCENT_GOLD}66`,
+    borderColor: `${GOLD}40`,
+    marginBottom: Spacing.lg,
   },
-  topBadgeText: {
-    color: ACCENT_GOLD,
+  badgeText: {
+    color: GOLD,
     fontWeight: '700',
-    fontSize: FontSizes.xs,
-    letterSpacing: 0.3,
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
   heroBlock: {
     marginBottom: Spacing.lg,
   },
   brand: {
-    color: Colors.text,
-    fontSize: 36,
+    fontSize: 15,
     fontWeight: '800',
-    marginBottom: 2,
+    color: Colors.primary,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: '800',
+  heroLine1: {
+    fontSize: 44,
+    fontWeight: '900',
     color: Colors.text,
-    marginBottom: Spacing.sm,
-    lineHeight: 40,
+    lineHeight: 50,
+    letterSpacing: -1,
+  },
+  heroAccentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  heroLine2: {
+    fontSize: 44,
+    fontWeight: '900',
+    color: GOLD,
+    lineHeight: 50,
+    letterSpacing: -1,
+  },
+  heroDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: RED_BRIGHT,
+    marginLeft: 6,
+    marginTop: 4,
   },
   subtitle: {
-    fontSize: FontSizes.lg,
+    fontSize: 15,
     color: Colors.textMuted,
-    lineHeight: 25,
-    maxWidth: 430,
+    lineHeight: 23,
+    maxWidth: 340,
   },
   pillRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
     marginBottom: Spacing.xl,
   },
   pill: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: Radius.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: SURFACE_GLOW,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#3A2510',
   },
   pillText: {
     color: Colors.textMuted,
     fontWeight: '700',
-    fontSize: FontSizes.xs,
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
   buttonContainer: {
     width: '100%',
     gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  button: {
+  primaryButton: {
+    width: '100%',
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.primary,
+    borderWidth: 1,
+    borderColor: RED_BRIGHT,
+    overflow: 'hidden',
+    // Subtle inner glow via shadow
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  primaryButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.md,
+    paddingVertical: 16,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: FontSizes.md,
+    letterSpacing: 0.3,
+  },
+  secondaryButton: {
     width: '100%',
     padding: Spacing.md,
+    paddingVertical: 16,
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#1C1008',
     borderWidth: 1,
-    borderColor: '#D34D3E',
-  },
-  secondaryButton: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: `${Colors.textMuted}66`,
-  },
-  primaryButtonText: {
-    color: Colors.text,
-    fontWeight: '700',
-    fontSize: FontSizes.md,
+    borderColor: '#3A2510',
   },
   secondaryButtonText: {
     color: Colors.text,
     fontWeight: '700',
     fontSize: FontSizes.md,
   },
+  footnoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: Spacing.sm,
+  },
+  footnoteDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#2A1A0E',
+  },
   footnote: {
-    marginTop: Spacing.md,
-    color: Colors.textMuted,
-    fontSize: FontSizes.xs,
-    textAlign: 'center',
+    color: '#4A3520',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
