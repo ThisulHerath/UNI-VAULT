@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image,
   Animated, Easing,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
@@ -14,6 +15,14 @@ const GOLD = '#E8A838';
 const FIELD_BG = '#160C05';
 const BORDER_IDLE = '#2E1A0A';
 const BORDER_FOCUS = '#C0392B';
+
+const resolveImageMimeType = (filename: string) => {
+  const extension = filename.split('.').pop()?.toLowerCase();
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/jpeg';
+};
 
 // ─── Floating label input (same as login but self-contained here) ─────────────
 interface FieldProps {
@@ -173,6 +182,7 @@ export default function RegisterScreen() {
     name: '', email: '', password: '', confirmPassword: '', university: '', batch: '',
   });
   const [loading, setLoading] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const cardAnim = useRef(new Animated.Value(0)).current;
   const cardRise = useRef(new Animated.Value(30)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
@@ -191,6 +201,19 @@ export default function RegisterScreen() {
   const step1Done = !!form.name && !!form.email;
   const step2Done = !!form.password && !!form.confirmPassword;
   const handleBackToWelcome = () => router.push('/(auth)/welcome');
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length > 0) {
+      setAvatarUri(result.assets[0].uri);
+    }
+  };
 
   const handleRegister = async () => {
     if (!form.name || !form.email || !form.password) {
@@ -212,13 +235,18 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await register({
-        name: form.name,
-        email: form.email.toLowerCase(),
-        password: form.password,
-        university: form.university,
-        batch: form.batch,
-      });
+      const data = new FormData();
+      data.append('name', form.name);
+      data.append('email', form.email.toLowerCase());
+      data.append('password', form.password);
+      data.append('university', form.university);
+      data.append('batch', form.batch);
+      if (avatarUri) {
+        const filename = avatarUri.split('/').pop() || 'avatar.jpg';
+        const type = resolveImageMimeType(filename);
+        data.append('avatar', { uri: avatarUri, name: filename, type } as any);
+      }
+      await register(data);
       router.replace('/(tabs)');
     } catch (err: any) {
       Toast.show({ type: 'error', text1: 'Registration Failed', text2: err.message });
@@ -306,6 +334,29 @@ export default function RegisterScreen() {
 
           <FormField label="University" icon="business-outline" value={form.university} onChangeText={update('university')} optional />
           <FormField label="Batch / Intake" icon="calendar-outline" value={form.batch} onChangeText={update('batch')} autoCapitalize="characters" optional />
+
+          <View style={[styles.sectionLabel, { marginTop: 6 }]}>
+            <Ionicons name="image-outline" size={13} color={GOLD} />
+            <Text style={styles.sectionLabelText}>Profile Image</Text>
+            <View style={styles.optionalBadge}><Text style={styles.optionalBadgeText}>optional</Text></View>
+          </View>
+
+          <TouchableOpacity style={styles.avatarPicker} onPress={pickImage} activeOpacity={0.85}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarPreview} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={28} color={Colors.textMuted} />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.avatarPickerTitle}>Add profile photo</Text>
+              <Text style={styles.avatarPickerSub}>
+                This image will be shown on home, profile, and group chats.
+              </Text>
+            </View>
+            <Ionicons name="camera-outline" size={18} color={GOLD} />
+          </TouchableOpacity>
 
           {/* Submit */}
           <Animated.View style={{ transform: [{ scale: btnScale }], marginTop: 6 }}>
@@ -474,6 +525,42 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   optionalBadgeText: { fontSize: 10, color: '#4A3520', fontWeight: '600' },
+  avatarPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#2E1A0A',
+    backgroundColor: FIELD_BG,
+    borderRadius: Radius.md,
+    padding: 10,
+    marginBottom: 10,
+  },
+  avatarPreview: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  avatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#1E1008',
+    borderWidth: 1,
+    borderColor: '#2E1A0A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPickerTitle: {
+    color: Colors.text,
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  avatarPickerSub: {
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
   button: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.md,

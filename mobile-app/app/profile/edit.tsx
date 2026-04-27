@@ -29,6 +29,14 @@ const C = {
   inputBg: '#160E0A',
 };
 
+const resolveImageMimeType = (filename: string) => {
+  const extension = filename.split('.').pop()?.toLowerCase();
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/jpeg';
+};
+
 export default function EditProfileScreen() {
   const { user, updateUser } = useAuth();
   const [formData, setFormData] = useState({ name: '', university: '', batch: '' });
@@ -39,7 +47,7 @@ export default function EditProfileScreen() {
   useEffect(() => {
     if (user) {
       setFormData({ name: user.name || '', university: user.university || '', batch: user.batch || '' });
-      setAvatarUri(user.avatar || null);
+      setAvatarUri(user.avatar ? `${user.avatar}${user.avatar.includes('?') ? '&' : '?'}t=${Date.now()}` : null);
     }
   }, [user]);
 
@@ -64,14 +72,20 @@ export default function EditProfileScreen() {
       data.append('batch', formData.batch);
       if (avatarUri && !avatarUri.startsWith('http')) {
         const filename = avatarUri.split('/').pop() || 'avatar.jpg';
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image/jpeg`;
+        const type = resolveImageMimeType(filename);
         data.append('avatar', { uri: avatarUri, name: filename, type } as any);
       }
       const res = await authService.updateProfile(data);
       if (res.success && res.data) {
-        updateUser(res.data);
-        Toast.show({ type: 'success', text1: 'Profile Updated' });
+        await updateUser(res.data);
+        const hasAvatarFromBackend = !!res.data.avatar;
+        Toast.show({
+          type: 'success',
+          text1: 'Profile Updated',
+          text2: hasAvatarFromBackend
+            ? 'Avatar uploaded and confirmed by server.'
+            : 'Saved, but no avatar URL was returned by server.',
+        });
         router.back();
       }
     } catch (e: any) {

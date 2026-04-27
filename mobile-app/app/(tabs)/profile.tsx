@@ -58,7 +58,7 @@ export default function ProfileScreen() {
         authService.getMe(),
         noteService.getMyNotes({ limit: 5 }),
       ]);
-      updateUser(meRes.data);
+      await updateUser(meRes.data);
       setMyNotes(notesRes.data || []);
       const requestsRes = await requestService.getRequests({ requestedBy: meRes.data?._id, limit: 5 });
       setMyRequests(requestsRes.data || []);

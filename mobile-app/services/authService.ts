@@ -1,5 +1,6 @@
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizeApiAssetUrl } from './api';
 
 export interface RegisterData {
   name: string;
@@ -15,8 +16,11 @@ export interface LoginData {
 }
 
 export const authService = {
-  register: async (data: RegisterData) => {
-    const res = await api.post('/auth/register', data);
+  register: async (data: RegisterData | FormData) => {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const res = await api.post('/auth/register', data, isFormData
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : undefined);
     if (res.data.token) {
       await AsyncStorage.setItem('univault_token', res.data.token);
     }
@@ -70,7 +74,27 @@ export const authService = {
 
   getStoredUser: async () => {
     const user = await AsyncStorage.getItem('univault_user');
-    return user ? JSON.parse(user) : null;
+    if (!user) return null;
+
+    const parsedUser = JSON.parse(user);
+    if (parsedUser && typeof parsedUser === 'object' && 'avatar' in parsedUser) {
+      parsedUser.avatar = normalizeApiAssetUrl(parsedUser.avatar as string | null);
+    }
+
+    return parsedUser;
+  },
+
+  setStoredUser: async (user: unknown) => {
+    if (user && typeof user === 'object' && 'avatar' in (user as Record<string, unknown>)) {
+      const normalizedUser = {
+        ...(user as Record<string, unknown>),
+        avatar: normalizeApiAssetUrl((user as Record<string, unknown>).avatar as string | null),
+      };
+      await AsyncStorage.setItem('univault_user', JSON.stringify(normalizedUser));
+      return;
+    }
+
+    await AsyncStorage.setItem('univault_user', JSON.stringify(user));
   },
 
   getStoredToken: async () => {

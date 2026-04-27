@@ -61,13 +61,21 @@ exports.register = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const user = await User.create({
+    const userData = {
       name,
       email,
       password: hashedPassword,
       university,
       batch,
-    });
+    };
+
+    if (req.file) {
+      const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+      userData.avatar = avatarUrl;
+      userData.avatarPublicId = req.file.filename;
+    }
+
+    const user = await User.create(userData);
 
     await sendTokenResponse(user, 201, res);
   } catch (error) {

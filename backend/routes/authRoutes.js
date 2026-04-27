@@ -21,7 +21,7 @@ const registerRules = [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 ];
 
-router.post('/register', registerRules, register);
+router.post('/register', uploadAvatar.single('avatar'), registerRules, register);
 router.post('/login', login);
 
 router.get('/me',       protect, getMe);

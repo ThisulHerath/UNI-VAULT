@@ -61,11 +61,19 @@ const fileFilter = {
   },
   avatar: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    cb(allowed.includes(file.mimetype) ? null : new Error('Only JPG, PNG, WebP allowed for avatars'));
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only JPG, PNG, WebP allowed for avatars'));
   },
   cover: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    cb(allowed.includes(file.mimetype) ? null : new Error('Only JPG, PNG, WebP allowed for covers'));
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only JPG, PNG, WebP allowed for covers'));
   },
 };
 

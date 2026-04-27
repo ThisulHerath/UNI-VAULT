@@ -622,6 +622,18 @@ export default function GroupDetailScreen() {
     : [];
 
   const visibleMessages = Array.isArray(group.messages) ? group.messages.slice(-30) : [];
+  const ownerId = group.createdBy?._id || group.createdBy;
+  const ownerFromMembers = Array.isArray(group.members)
+    ? group.members.find((member: any) => {
+        const memberId = member.user?._id || member.user;
+        return String(memberId) === String(ownerId);
+      })
+    : null;
+  const groupAdminName =
+    group.createdBy?.name ||
+    ownerFromMembers?.user?.name ||
+    ownerFromMembers?.name ||
+    (group.createdBy && typeof group.createdBy === 'string' ? 'Group Owner' : 'Unknown');
 
   return (
     <View style={styles.container}>
@@ -658,57 +670,47 @@ export default function GroupDetailScreen() {
                 <Text style={styles.sectionTitle}>Group Overview</Text>
                 <Text style={styles.title}>{group.name}</Text>
                 <Text style={styles.desc}>{group.description || 'No description provided'}</Text>
-                <Text style={styles.meta}>Privacy: {group.privacy}</Text>
+                <View style={styles.groupMetaPanel}>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Privacy</Text>
+                    <Text style={styles.metaValue}>{group.privacy}</Text>
+                  </View>
+                  {group.privacy === 'public' && (
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaLabel}>Join Mode</Text>
+                      <Text style={styles.metaValue}>{group.joinMode === 'request' ? 'Request approval' : 'Open'}</Text>
+                    </View>
+                  )}
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Members</Text>
+                    <Text style={styles.metaValue}>{group.memberCount || group.members?.length || 0}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Group Admin</Text>
+                    <Text style={styles.metaValue}>{groupAdminName}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Your Role</Text>
+                    <Text style={styles.metaValue}>{requesterRole}</Text>
+                  </View>
+                </View>
+
                 {group.privacy === 'public' && (
-                  <Text style={styles.meta}>Join Mode: {group.joinMode === 'request' ? 'Request approval' : 'Open'}</Text>
+                  <View style={styles.infoBadgeRow}>
+                    <View style={styles.infoBadge}>
+                      <Ionicons name="earth-outline" size={14} color={Colors.primary} />
+                      <Text style={styles.infoBadgeText}>Public Group</Text>
+                    </View>
+                    <View style={styles.infoBadge}>
+                      <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                      <Text style={styles.infoBadgeText}>{group.memberCount || group.members?.length || 0} members</Text>
+                    </View>
+                  </View>
                 )}
-                <Text style={styles.meta}>Members: {group.memberCount || group.members?.length || 0}</Text>
-                <Text style={styles.meta}>Your Role: {requesterRole}</Text>
                 {isAdmin && group.privacy === 'private' && !!group.invitationCode && (
                   <Text style={styles.meta}>Invitation Code: {group.invitationCode}</Text>
                 )}
               </View>
-
-              {isMember && (
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Shared Notes</Text>
-                  {Array.isArray(group.sharedNotes) && group.sharedNotes.length > 0 ? (
-                    group.sharedNotes.map((note: any) => {
-                      const noteId = String(note?._id || note?.id || '');
-                      const isSaved = !!sharedNoteSavedState[noteId];
-                      const isBusy = savingSharedNoteId === noteId;
-
-                      return (
-                        <View key={noteId} style={styles.sharedNoteRow}>
-                          <TouchableOpacity style={styles.sharedNoteInfo} onPress={() => router.push(`/note/${noteId}`)}>
-                            <Text style={styles.sharedNoteTitle} numberOfLines={1}>{note?.title || 'Untitled note'}</Text>
-                            <Text style={styles.sharedNoteMeta} numberOfLines={1}>
-                              {note?.subject?.name || note?.subjectText || 'No subject'}
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.sharedNoteSaveBtn, isSaved && styles.sharedNoteSaveBtnActive, isBusy && { opacity: 0.7 }]}
-                            onPress={() => handleToggleSharedNoteSave(note)}
-                            disabled={isBusy}
-                          >
-                            {isBusy ? (
-                              <ActivityIndicator size="small" color={Colors.text} />
-                            ) : (
-                              <>
-                                <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={16} color={Colors.text} />
-                                <Text style={styles.sharedNoteSaveText}>{isSaved ? 'Saved' : 'Save'}</Text>
-                              </>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={styles.meta}>No shared notes yet.</Text>
-                  )}
-                </View>
-              )}
 
               {!isMember && (
                 <View style={styles.card}>
@@ -769,6 +771,7 @@ export default function GroupDetailScreen() {
                       const requestUserId = request.user?._id || request.user;
                       const userName = request.user?.name || 'Unknown user';
                       const userInitial = userName.charAt(0).toUpperCase();
+                      const userAvatar = request.user?.avatar;
                       const requestTime = formatRelativeTime(request.requestedAt);
                       const isProcessing = busyAction?.startsWith(`approve-${requestUserId}`) || busyAction?.startsWith(`reject-${requestUserId}`);
 
@@ -776,7 +779,11 @@ export default function GroupDetailScreen() {
                         <View key={requestUserId} style={styles.requestItem}>
                           <View style={styles.requestInfo}>
                             <View style={styles.userBadge}>
-                              <Text style={styles.userInitial}>{userInitial}</Text>
+                              {userAvatar ? (
+                                <Image source={{ uri: userAvatar }} style={styles.userBadgeImage} />
+                              ) : (
+                                <Text style={styles.userInitial}>{userInitial}</Text>
+                              )}
                             </View>
                             <View style={styles.requestDetails}>
                               <Text style={styles.requestUserName}>{userName}</Text>
@@ -826,13 +833,23 @@ export default function GroupDetailScreen() {
                   {group.members.map((member: any) => {
                     const memberId = member.user?._id || member.user;
                     const memberName = member.user?.name || 'Unknown';
+                    const memberAvatar = member.user?.avatar;
                     const roleLabel = String(memberId) === String(group.createdBy?._id) ? 'owner' : member.role;
 
                     if (member.role === 'pending') return null;
 
                     return (
                       <View key={memberId} style={styles.memberRow}>
-                        <Text style={styles.memberName}>{memberName} ({roleLabel})</Text>
+                        <View style={styles.memberInfo}>
+                          <View style={styles.memberAvatarWrap}>
+                            {memberAvatar ? (
+                              <Image source={{ uri: memberAvatar }} style={styles.memberAvatar} />
+                            ) : (
+                              <Text style={styles.memberAvatarText}>{memberName.charAt(0).toUpperCase()}</Text>
+                            )}
+                          </View>
+                          <Text style={styles.memberName}>{memberName} ({roleLabel})</Text>
+                        </View>
                         <View style={styles.rowActions}>
                           {isOwner && String(memberId) !== String(group.createdBy?._id) && member.role !== 'admin' && (
                             <TouchableOpacity
@@ -909,6 +926,8 @@ export default function GroupDetailScreen() {
                   const isMine = String(senderId) === String(currentUserId);
                   const hasAttachment = !!msg.attachment?.fileUrl;
                   const messageBody = (msg.text || '').trim();
+                  const senderName = msg.sender?.name || 'Member';
+                  const senderAvatar = msg.sender?.avatar;
 
                   const openAttachment = async () => {
                     if (!msg.attachment?.fileUrl) return;
@@ -964,7 +983,18 @@ export default function GroupDetailScreen() {
                       }}
                       style={[styles.messageRow, isMine ? styles.messageRowMine : styles.messageRowOther]}
                     >
-                      {!isMine && <Text style={styles.messageAuthor}>{msg.sender?.name || 'Member'}</Text>}
+                      {!isMine && (
+                        <View style={styles.messageAuthorRow}>
+                          <View style={styles.messageAvatarWrap}>
+                            {senderAvatar ? (
+                              <Image source={{ uri: senderAvatar }} style={styles.messageAvatar} />
+                            ) : (
+                              <Text style={styles.messageAvatarText}>{senderName.charAt(0).toUpperCase()}</Text>
+                            )}
+                          </View>
+                          <Text style={styles.messageAuthor}>{senderName}</Text>
+                        </View>
+                      )}
                       <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
                         {messageBody ? (
                           <Text style={[styles.messageText, isMine ? styles.messageTextMine : styles.messageTextOther]}>
@@ -1277,6 +1307,57 @@ const styles = StyleSheet.create({
   desc: { fontSize: FontSizes.md, color: Colors.textMuted, marginBottom: Spacing.md },
   meta: { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 4 },
   sectionTitle: { fontSize: FontSizes.md, color: Colors.text, fontWeight: '700', marginBottom: Spacing.sm },
+  groupMetaPanel: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border + '70',
+  },
+  metaLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  metaValue: {
+    fontSize: FontSizes.sm,
+    color: Colors.text,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  infoBadgeRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  infoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.primary + '18',
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.primary + '35',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+  },
+  infoBadgeText: {
+    color: Colors.primary,
+    fontSize: FontSizes.xs,
+    fontWeight: '700',
+  },
   sharedNoteRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1314,6 +1395,19 @@ const styles = StyleSheet.create({
   secondaryButton: { backgroundColor: Colors.surfaceAlt, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.sm },
   buttonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
   memberRow: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm, marginTop: Spacing.sm },
+  memberInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  memberAvatarWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.primary + '30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginRight: 8,
+  },
+  memberAvatar: { width: '100%', height: '100%' },
+  memberAvatarText: { color: Colors.primary, fontWeight: '800', fontSize: FontSizes.sm },
   memberName: { color: Colors.text, fontWeight: '600', marginBottom: 6 },
   rowActions: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: { backgroundColor: Colors.primary + '20', borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: 10 },
@@ -1325,6 +1419,7 @@ const styles = StyleSheet.create({
   requestItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.background, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   requestInfo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
   userBadge: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.primary + '30', justifyContent: 'center', alignItems: 'center' },
+  userBadgeImage: { width: '100%', height: '100%' },
   userInitial: { color: Colors.primary, fontWeight: '800', fontSize: FontSizes.lg },
   requestDetails: { flex: 1 },
   requestUserName: { color: Colors.text, fontWeight: '700', fontSize: FontSizes.md, marginBottom: 2 },
@@ -1447,7 +1542,20 @@ const styles = StyleSheet.create({
   messageRow: { marginBottom: Spacing.sm },
   messageRowMine: { alignItems: 'flex-end' },
   messageRowOther: { alignItems: 'flex-start' },
-  messageAuthor: { color: Colors.textMuted, fontWeight: '700', fontSize: FontSizes.xs, marginBottom: 4 },
+  messageAuthorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  messageAuthor: { color: Colors.textMuted, fontWeight: '700', fontSize: FontSizes.xs },
+  messageAvatarWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.primary + '30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginRight: 6,
+  },
+  messageAvatar: { width: '100%', height: '100%' },
+  messageAvatarText: { color: Colors.primary, fontSize: 11, fontWeight: '800' },
   bubble: {
     maxWidth: '84%',
     borderRadius: Radius.md,
