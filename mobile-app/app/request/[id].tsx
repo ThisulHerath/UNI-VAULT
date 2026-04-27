@@ -17,6 +17,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestService } from '../../services/dataServices';
+import {
+  getFulfillmentSaveState,
+  getNoteSaveState,
+  removeFulfillmentFromAllCollections,
+  removeNoteFromAllCollections,
+  saveFulfillmentToCollections,
+  saveNoteToCollections,
+} from '../../services/collectionLogic';
+import { useAppDialog } from '../../hooks/use-app-dialog';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
@@ -51,6 +60,7 @@ const isAllowedRequestFile = (mimeType?: string, fileName?: string) => {
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
+  const { showDialog, dialogElement } = useAppDialog();
   const [requestItem, setRequestItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -63,6 +73,8 @@ export default function RequestDetailScreen() {
   const [fulfillSubmitting, setFulfillSubmitting] = useState(false);
   const [openingFulfillment, setOpeningFulfillment] = useState(false);
   const [isPickingDocument, setIsPickingDocument] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [isFulfillmentSaved, setIsFulfillmentSaved] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -92,6 +104,9 @@ export default function RequestDetailScreen() {
   const isFulfillmentPublic = !!requestItem?.fulfillment?.isPublic;
   const canToggleFulfillmentVisibility = isRequestOwner && !!requestItem?.fulfillment;
   const fulfillmentNoteId = requestItem?.fulfilledByNote?._id || requestItem?.fulfilledByNote?.id || null;
+  const fulfillmentRequestId = requestItem?._id ? String(requestItem._id) : null;
+  const isFileFulfillment = !!requestItem?.fulfillment?.fileId && !fulfillmentNoteId;
+  const canSaveFileFulfillment = isFileFulfillment && isFulfillmentPublic;
   const canDeleteFulfilledRequest = canManageRequest && requestItem?.status === 'fulfilled';
   const isDeletedRequest = requestItem?.status === 'closed' && requestItem?.closedReason === 'deleted';
 
@@ -105,6 +120,48 @@ export default function RequestDetailScreen() {
       : requestItem?.closedReason === 'deleted'
         ? { backgroundColor: Colors.error + '20', color: Colors.error }
         : { backgroundColor: Colors.warning + '20', color: Colors.warning };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncSavedState = async () => {
+      if (!user?._id) {
+        if (mounted) setIsFulfillmentSaved(false);
+        return;
+      }
+
+      try {
+        if (fulfillmentNoteId) {
+          const state = await getNoteSaveState(fulfillmentNoteId);
+          if (mounted) {
+            setIsFulfillmentSaved(state.isSaved);
+          }
+          return;
+        }
+
+        if (canSaveFileFulfillment && fulfillmentRequestId) {
+          const state = await getFulfillmentSaveState(fulfillmentRequestId);
+          if (mounted) {
+            setIsFulfillmentSaved(state.isSaved);
+          }
+          return;
+        }
+
+        if (mounted) {
+          setIsFulfillmentSaved(false);
+        }
+      } catch {
+        if (mounted) {
+          setIsFulfillmentSaved(false);
+        }
+      }
+    };
+
+    syncSavedState();
+    return () => {
+      mounted = false;
+    };
+  }, [fulfillmentNoteId, canSaveFileFulfillment, fulfillmentRequestId, user?._id]);
 
   const confirmDelete = () => {
     setPendingAction('delete');
@@ -314,6 +371,113 @@ export default function RequestDetailScreen() {
     }
   };
 
+  const toggleFulfillmentSave = () => {
+    if (!fulfillmentNoteId && !canSaveFileFulfillment) {
+      Toast.show({
+        type: 'error',
+        text1: 'Save Unavailable',
+        text2: 'Only fulfillment notes or public attachments can be saved to collections.',
+      });
+      return;
+    }
+
+    if (!user?._id) {
+      showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
+        { label: 'Okay', role: 'default' },
+      ]);
+      return;
+    }
+
+    if (saveBusy) return;
+
+    if (!isFulfillmentSaved) {
+      const saveTitle = fulfillmentNoteId ? 'Save Fulfillment Note' : 'Save Fulfillment Attachment';
+      const saveMessage = fulfillmentNoteId
+        ? 'Save this fulfillment note to your collections?'
+        : 'Save this public fulfillment attachment to your collections?';
+
+      showDialog(saveTitle, saveMessage, [
+        { label: 'Not Now', role: 'cancel' },
+        {
+          label: 'Save',
+          onPress: async () => {
+            try {
+              setSaveBusy(true);
+              const result = fulfillmentNoteId
+                ? await saveNoteToCollections(fulfillmentNoteId)
+                : await saveFulfillmentToCollections(String(fulfillmentRequestId));
+              setIsFulfillmentSaved(true);
+              Toast.show({
+                type: 'success',
+                text1: 'Saved to Collection',
+                text2: result.createdCollection
+                  ? `Created ${result.collectionName} and saved this note.`
+                  : `Saved to ${result.collectionName}.`,
+              });
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Save Failed',
+                text2: error?.message || 'Unable to save this fulfillment item.',
+              });
+            } finally {
+              setSaveBusy(false);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+
+    const removeTitle = fulfillmentNoteId ? 'Remove Saved Note' : 'Remove Saved Attachment';
+    const removeMessage = fulfillmentNoteId
+      ? 'Remove this fulfillment note from your saved collections?'
+      : 'Remove this fulfillment attachment from your saved collections?';
+
+    showDialog(removeTitle, removeMessage, [
+      { label: 'Cancel', role: 'cancel' },
+      {
+        label: 'Remove',
+        role: 'destructive',
+        onPress: async () => {
+          try {
+            setSaveBusy(true);
+            const state = fulfillmentNoteId
+              ? await getNoteSaveState(fulfillmentNoteId)
+              : await getFulfillmentSaveState(String(fulfillmentRequestId));
+            if (!state.collectionCount) {
+              setIsFulfillmentSaved(false);
+              Toast.show({
+                type: 'error',
+                text1: 'Already Removed',
+                text2: 'This item is not in your collections anymore.',
+              });
+              return;
+            }
+
+            const removedCount = fulfillmentNoteId
+              ? await removeNoteFromAllCollections(fulfillmentNoteId)
+              : await removeFulfillmentFromAllCollections(String(fulfillmentRequestId));
+            setIsFulfillmentSaved(false);
+            Toast.show({
+              type: 'success',
+              text1: 'Removed from Collections',
+              text2: `Removed from ${removedCount} collection${removedCount === 1 ? '' : 's'}.`,
+            });
+          } catch (error: any) {
+            Toast.show({
+              type: 'error',
+              text1: 'Remove Failed',
+              text2: error?.message || 'Unable to remove this fulfillment item.',
+            });
+          } finally {
+            setSaveBusy(false);
+          }
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -391,6 +555,27 @@ export default function RequestDetailScreen() {
               >
                 <Ionicons name="open-outline" size={18} color={Colors.text} />
                 <Text style={styles.openFileText}>{openingFulfillment ? 'Opening...' : fulfillmentNoteId ? 'Open note' : 'Open attachment'}</Text>
+              </TouchableOpacity>
+            )}
+
+            {!!(fulfillmentNoteId || canSaveFileFulfillment) && (
+              <TouchableOpacity
+                style={[styles.saveNoteButton, saveBusy && { opacity: 0.7 }]}
+                onPress={toggleFulfillmentSave}
+                disabled={saveBusy}
+              >
+                {saveBusy ? (
+                  <ActivityIndicator size="small" color={Colors.text} />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={isFulfillmentSaved ? 'bookmark' : 'bookmark-outline'}
+                      size={18}
+                      color={Colors.text}
+                    />
+                    <Text style={styles.saveNoteText}>{isFulfillmentSaved ? 'Saved to Collections' : 'Save to Collections'}</Text>
+                  </>
+                )}
               </TouchableOpacity>
             )}
 
@@ -600,6 +785,8 @@ export default function RequestDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {dialogElement}
     </View>
   );
 }
@@ -631,6 +818,8 @@ const styles = StyleSheet.create({
   fulfillmentMetaText: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 4 },
   openFileButton: { marginTop: Spacing.md, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   openFileText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
+  saveNoteButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.secondary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  saveNoteText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
   visibilityActionButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   makePublicButton: { backgroundColor: Colors.success },
   makePrivateButton: { backgroundColor: Colors.secondary },

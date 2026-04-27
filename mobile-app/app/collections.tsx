@@ -25,18 +25,24 @@ export default function CollectionsScreen() {
 
   useEffect(() => { load(); }, []);
 
-  const renderItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.card} onPress={() => router.push(`/collection/${item._id}`)}>
-      <View style={styles.iconContainer}>
-        <Ionicons name="folder-open" size={24} color={Colors.primary} />
-      </View>
-      <View style={styles.infoContainer}>
-        <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.meta}>{item.notes?.length || 0} Notes</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }: any) => {
+    const noteCount = Array.isArray(item?.notes) ? item.notes.length : 0;
+    const fulfillmentCount = Array.isArray(item?.requestFulfillments) ? item.requestFulfillments.length : 0;
+    const totalCount = noteCount + fulfillmentCount;
+
+    return (
+      <TouchableOpacity style={styles.card} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: item._id } })}>
+        <View style={styles.iconContainer}>
+          <Ionicons name="folder-open" size={24} color={Colors.primary} />
+        </View>
+        <View style={styles.infoContainer}>
+          <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.meta}>{totalCount} Saved Items</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>

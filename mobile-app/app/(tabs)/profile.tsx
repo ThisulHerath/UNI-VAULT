@@ -6,18 +6,29 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 import { noteService, requestService } from '../../services/dataServices';
+import {
+  getNoteSaveState,
+  getSavedStateMapForNotes,
+  removeNoteFromAllCollections,
+  saveNoteToCollections,
+} from '../../services/collectionLogic';
+import { useAppDialog } from '../../hooks/use-app-dialog';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
 export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuth();
+  const { showDialog, dialogElement } = useAppDialog();
   const [myNotes, setMyNotes]   = useState<any[]>([]);
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
 
   const load = async (showLoader = false) => {
     try {
@@ -47,6 +58,111 @@ export default function ProfileScreen() {
       }
     }, [loading])
   );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+
+      const syncSavedMap = async () => {
+        if (!user?._id) {
+          if (mounted) setSavedMap({});
+          return;
+        }
+
+        const noteIds = myNotes.map((note) => String(note?._id || '')).filter(Boolean);
+        if (!noteIds.length) {
+          if (mounted) setSavedMap({});
+          return;
+        }
+
+        try {
+          const nextMap = await getSavedStateMapForNotes(noteIds);
+          if (mounted) setSavedMap(nextMap);
+        } catch {
+          if (mounted) setSavedMap({});
+        }
+      };
+
+      syncSavedMap();
+      return () => {
+        mounted = false;
+      };
+    }, [myNotes, user?._id])
+  );
+
+  const toggleSave = (note: any) => {
+    const noteId = String(note?._id || '');
+    if (!noteId) return;
+
+    if (!user?._id) {
+      showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
+        { label: 'Okay', role: 'default' },
+      ]);
+      return;
+    }
+
+    if (savingNoteId) return;
+    const isSaved = !!savedMap[noteId];
+
+    if (!isSaved) {
+      showDialog('Save Note', 'Save this note to your collections?', [
+        { label: 'Not Now', role: 'cancel' },
+        {
+          label: 'Save',
+          onPress: async () => {
+            try {
+              setSavingNoteId(noteId);
+              const result = await saveNoteToCollections(noteId);
+              setSavedMap((prev) => ({ ...prev, [noteId]: true }));
+              Toast.show({
+                type: 'success',
+                text1: 'Saved to Collection',
+                text2: result.createdCollection
+                  ? `Created ${result.collectionName} and saved this note.`
+                  : `Saved to ${result.collectionName}.`,
+              });
+            } catch (error: any) {
+              Toast.show({ type: 'error', text1: 'Save Failed', text2: error?.message || 'Unable to save this note.' });
+            } finally {
+              setSavingNoteId(null);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+
+    showDialog('Remove Saved Note', 'Remove this note from your saved collections?', [
+      { label: 'Cancel', role: 'cancel' },
+      {
+        label: 'Remove',
+        role: 'destructive',
+        onPress: async () => {
+          try {
+            setSavingNoteId(noteId);
+            const state = await getNoteSaveState(noteId);
+            if (!state.collectionCount) {
+              setSavedMap((prev) => ({ ...prev, [noteId]: false }));
+              Toast.show({ type: 'error', text1: 'Already Removed', text2: 'This note is not in your collections anymore.' });
+              return;
+            }
+
+            const removedCount = await removeNoteFromAllCollections(noteId);
+            setSavedMap((prev) => ({ ...prev, [noteId]: false }));
+            Toast.show({
+              type: 'success',
+              text1: 'Removed from Collections',
+              text2: `Removed from ${removedCount} collection${removedCount === 1 ? '' : 's'}.`,
+            });
+          } catch (error: any) {
+            Toast.show({ type: 'error', text1: 'Remove Failed', text2: error?.message || 'Unable to remove this note.' });
+          } finally {
+            setSavingNoteId(null);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleLogout = () => {
     setShowSignOutModal(true);
@@ -126,10 +242,23 @@ export default function ProfileScreen() {
       {myNotes.length === 0
         ? <Text style={styles.empty}>You haven&apos;t uploaded any notes yet.</Text>
         : myNotes.map(n => (
-            <TouchableOpacity key={n._id} style={styles.noteCard} onPress={() => router.push(`/note/${n._id}`)}>
-              <Ionicons name="document-text-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.noteTitle} numberOfLines={1}>{n.title}</Text>
-            </TouchableOpacity>
+            <View key={n._id} style={styles.noteCard}>
+              <TouchableOpacity style={styles.noteMain} onPress={() => router.push(`/note/${n._id}`)}>
+                <Ionicons name="document-text-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.noteTitle} numberOfLines={1}>{n.title}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.noteSaveBtn, savingNoteId === String(n._id) && { opacity: 0.7 }]}
+                onPress={() => toggleSave(n)}
+                disabled={savingNoteId === String(n._id)}
+              >
+                {savingNoteId === String(n._id) ? (
+                  <ActivityIndicator size="small" color={Colors.text} />
+                ) : (
+                  <Ionicons name={savedMap[String(n._id)] ? 'bookmark' : 'bookmark-outline'} size={18} color={Colors.text} />
+                )}
+              </TouchableOpacity>
+            </View>
           ))
       }
       <TouchableOpacity onPress={() => router.push('/my-notes')}>
@@ -207,6 +336,8 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {dialogElement}
+
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -234,7 +365,17 @@ const styles = StyleSheet.create({
   badgeText:        { color: Colors.primary, fontSize: FontSizes.xs, fontWeight: '700' },
   section:          { fontSize: FontSizes.lg, fontWeight: '700', color: Colors.text, marginTop: Spacing.lg, marginBottom: Spacing.sm, marginHorizontal: Spacing.md },
   noteCard:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  noteMain:         { flexDirection: 'row', alignItems: 'center', flex: 1 },
   noteTitle:        { flex: 1, fontSize: FontSizes.md, color: Colors.text },
+  noteSaveBtn:      {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.sm,
+  },
   seeAll:           { color: Colors.primary, textAlign: 'center', marginBottom: Spacing.sm, fontWeight: '600' },
   requestCard:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   requestTitle:     { fontSize: FontSizes.md, color: Colors.text, fontWeight: '600' },

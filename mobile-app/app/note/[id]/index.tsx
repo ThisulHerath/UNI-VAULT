@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, Linking, TextInput, Modal,
+  ActivityIndicator, Linking, TextInput, Modal,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,12 @@ import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../context/AuthContext';
 import { noteService, reviewService } from '../../../services/dataServices';
+import {
+  getNoteSaveState,
+  removeNoteFromAllCollections,
+  saveNoteToCollections,
+} from '../../../services/collectionLogic';
+import { useAppDialog } from '../../../hooks/use-app-dialog';
 import { Colors, FontSizes, Spacing, Radius } from '../../../constants/theme';
 
 const REVIEW_PREFS_KEY = 'univault_review_prefs';
@@ -61,6 +67,7 @@ const formatTimestamp = (value?: string) => {
 export default function NoteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { showDialog, dialogElement } = useAppDialog();
   const [note, setNote]       = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewStats, setReviewStats] = useState<any>(null);
@@ -76,6 +83,8 @@ export default function NoteDetailScreen() {
   const [reportTargetReviewId, setReportTargetReviewId] = useState<string | null>(null);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deletingNote, setDeletingNote] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [isSavedToCollections, setIsSavedToCollections] = useState(false);
 
   useEffect(() => {
     const loadPrefs = async () => {
@@ -133,8 +142,119 @@ export default function NoteDetailScreen() {
     load();
   }, [id, user?._id, prefsLoaded, sortBy, ratingFilter]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncSavedState = async () => {
+      if (!id || !user?._id) {
+        if (isMounted) setIsSavedToCollections(false);
+        return;
+      }
+
+      try {
+        const state = await getNoteSaveState(id);
+        if (isMounted) {
+          setIsSavedToCollections(state.isSaved);
+        }
+      } catch {
+        if (isMounted) {
+          setIsSavedToCollections(false);
+        }
+      }
+    };
+
+    syncSavedState();
+    return () => {
+      isMounted = false;
+    };
+  }, [id, user?._id]);
+
   const handleDelete = () => {
     setDeleteModalVisible(true);
+  };
+
+  const handleToggleSave = () => {
+    if (!id) return;
+
+    if (!user?._id) {
+      showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
+        { label: 'Okay', role: 'default' },
+      ]);
+      return;
+    }
+
+    if (saveBusy) return;
+
+    if (!isSavedToCollections) {
+      showDialog('Save Note', 'Save this note to your collections?', [
+        { label: 'Not Now', role: 'cancel' },
+        {
+          label: 'Save',
+          onPress: async () => {
+            try {
+              setSaveBusy(true);
+              const result = await saveNoteToCollections(id);
+              setIsSavedToCollections(true);
+              Toast.show({
+                type: 'success',
+                text1: 'Saved to Collection',
+                text2: result.createdCollection
+                  ? `Created ${result.collectionName} and saved this note.`
+                  : `Saved to ${result.collectionName}.`,
+              });
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Save Failed',
+                text2: error?.message || 'Unable to save this note right now.',
+              });
+            } finally {
+              setSaveBusy(false);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+
+    showDialog('Remove Saved Note', 'Remove this note from your saved collections?', [
+      { label: 'Cancel', role: 'cancel' },
+      {
+        label: 'Remove',
+        role: 'destructive',
+        onPress: async () => {
+          try {
+            setSaveBusy(true);
+            const saveState = await getNoteSaveState(id);
+            if (!saveState.collectionCount) {
+              setIsSavedToCollections(false);
+              Toast.show({
+                type: 'error',
+                text1: 'Already Removed',
+                text2: 'This note is not in your collections anymore.',
+              });
+              return;
+            }
+
+            const removedCount = await removeNoteFromAllCollections(id);
+            setIsSavedToCollections(false);
+            Toast.show({
+              type: 'success',
+              text1: 'Removed from Collections',
+              text2: `Removed from ${removedCount} collection${removedCount === 1 ? '' : 's'}.`,
+            });
+          } catch (error: any) {
+            Toast.show({
+              type: 'error',
+              text1: 'Remove Failed',
+              text2: error?.message || 'Unable to remove this note right now.',
+            });
+          } finally {
+            setSaveBusy(false);
+          }
+        },
+      },
+    ]);
   };
 
   const confirmDeleteNote = async () => {
@@ -252,26 +372,30 @@ export default function NoteDetailScreen() {
   };
 
   const handleDeleteReview = (reviewId: string) => {
-    Alert.alert('Delete Review', 'Are you sure you want to delete your review?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try {
-          await reviewService.deleteReview(reviewId);
-          Toast.show({ type: 'success', text1: 'Review deleted' });
-          setMyReviewId(null);
-          setMyRating(0);
-          setMyComment('');
-          const [noteRes, res] = await Promise.all([
-            noteService.getNoteById(id),
-            noteService.getReviews(id, { sort: sortBy, ...ratingRanges[ratingFilter] }),
-          ]);
-          setNote(noteRes.data);
-          setReviews(res.data || []);
-          setReviewStats(res.stats || null);
-        } catch (error: any) {
-          Toast.show({ type: 'error', text1: 'Delete Failed', text2: error.message || 'Unable to delete review' });
-        }
-      }},
+    showDialog('Delete Review', 'Are you sure you want to delete your review?', [
+      { label: 'Cancel', role: 'cancel' },
+      {
+        label: 'Delete',
+        role: 'destructive',
+        onPress: async () => {
+          try {
+            await reviewService.deleteReview(reviewId);
+            Toast.show({ type: 'success', text1: 'Review deleted' });
+            setMyReviewId(null);
+            setMyRating(0);
+            setMyComment('');
+            const [noteRes, res] = await Promise.all([
+              noteService.getNoteById(id),
+              noteService.getReviews(id, { sort: sortBy, ...ratingRanges[ratingFilter] }),
+            ]);
+            setNote(noteRes.data);
+            setReviews(res.data || []);
+            setReviewStats(res.stats || null);
+          } catch (error: any) {
+            Toast.show({ type: 'error', text1: 'Delete Failed', text2: error.message || 'Unable to delete review' });
+          }
+        },
+      },
     ]);
   };
 
@@ -291,16 +415,31 @@ export default function NoteDetailScreen() {
       {/* Back + actions */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
-        {isOwner && (
-          <View style={styles.actions}>
-            <TouchableOpacity onPress={() => router.push(`/note/${id}/edit`)} style={styles.actionBtn}>
-              <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
+        <View style={styles.actions}>
+          {user?._id && (
+            <TouchableOpacity onPress={handleToggleSave} style={styles.actionBtn} disabled={saveBusy}>
+              {saveBusy ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Ionicons
+                  name={isSavedToCollections ? 'bookmark' : 'bookmark-outline'}
+                  size={18}
+                  color={isSavedToCollections ? Colors.primary : Colors.textMuted}
+                />
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDelete} style={styles.actionBtn}>
-              <Ionicons name="trash-outline" size={18} color={Colors.error} />
-            </TouchableOpacity>
-          </View>
-        )}
+          )}
+          {isOwner && (
+            <>
+              <TouchableOpacity onPress={() => router.push(`/note/${id}/edit`)} style={styles.actionBtn}>
+                <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={styles.actionBtn}>
+                <Ionicons name="trash-outline" size={18} color={Colors.error} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
 
       {/* Meta */}
@@ -574,6 +713,8 @@ export default function NoteDetailScreen() {
       </Modal>
 
       <View style={{ height: 40 }} />
+
+      {dialogElement}
     </ScrollView>
   );
 }

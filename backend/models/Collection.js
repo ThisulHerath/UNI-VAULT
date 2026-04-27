@@ -28,6 +28,13 @@ const collectionSchema = new mongoose.Schema(
         ref: 'Note',
       },
     ],
+    // Array of bookmarked request fulfillments (file-based)
+    requestFulfillments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'NoteRequest',
+      },
+    ],
     isPrivate: {
       type: Boolean,
       default: true, // Collections are private by default
@@ -43,6 +50,10 @@ const collectionSchema = new mongoose.Schema(
 // Virtual: count of notes in this collection
 collectionSchema.virtual('noteCount').get(function () {
   return this.notes ? this.notes.length : 0;
+});
+
+collectionSchema.virtual('requestFulfillmentCount').get(function () {
+  return this.requestFulfillments ? this.requestFulfillments.length : 0;
 });
 
 module.exports = mongoose.model('Collection', collectionSchema);

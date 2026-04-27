@@ -1,5 +1,26 @@
 const Collection = require('../models/Collection');
+const NoteRequest = require('../models/NoteRequest');
 const { setNoteFileUrls } = require('../utils/noteFiles');
+const { setRequestFulfillmentFileUrl } = require('../utils/requestFiles');
+
+const resolveEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value._id) return value._id.toString();
+  if (value.id) return value.id.toString();
+  return value.toString();
+};
+
+const canViewFulfillment = (request, user) => {
+  if (!request?.fulfillment?.fileId || !user?._id) return false;
+  if (request.fulfillment.isPublic) return true;
+
+  const viewerId = resolveEntityId(user._id || user);
+  return [
+    resolveEntityId(request.requestedBy),
+    resolveEntityId(request.fulfillment.uploadedBy),
+  ].includes(viewerId) || user.role === 'admin';
+};
 
 // ─── @route  POST /api/collections ────────────────────────────────────────────
 // ─── @access Private
@@ -45,6 +66,15 @@ exports.getCollectionById = async (req, res, next) => {
           { path: 'subject',    select: 'name code' },
           { path: 'uploadedBy', select: 'name avatar' },
         ],
+      })
+      .populate({
+        path: 'requestFulfillments',
+        select: 'title subject subjectLabel requestedBy status fulfillment',
+        populate: [
+          { path: 'subject', select: 'name code' },
+          { path: 'requestedBy', select: 'name avatar' },
+          { path: 'fulfillment.uploadedBy', select: 'name avatar' },
+        ],
       });
 
     if (!collection) {
@@ -58,6 +88,21 @@ exports.getCollectionById = async (req, res, next) => {
 
     const plainCollection = collection.toObject();
     plainCollection.notes = setNoteFileUrls(plainCollection.notes, req);
+    plainCollection.requestFulfillments = (plainCollection.requestFulfillments || []).map((requestItem) => {
+      if (!requestItem?.fulfillment?.fileId) return requestItem;
+
+      if (!canViewFulfillment(requestItem, req.user)) {
+        return {
+          ...requestItem,
+          fulfillment: {
+            ...requestItem.fulfillment,
+            fileUrl: null,
+          },
+        };
+      }
+
+      return setRequestFulfillmentFileUrl(requestItem, req);
+    });
 
     res.status(200).json({ success: true, data: plainCollection });
   } catch (error) {
@@ -114,6 +159,59 @@ exports.updateCollectionNotes = async (req, res, next) => {
     }
 
     const operator = action === 'add' ? { $addToSet: { notes: noteId } } : { $pull: { notes: noteId } };
+
+    const updated = await Collection.findByIdAndUpdate(req.params.id, operator, { new: true });
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  PUT /api/collections/:id/fulfillments ───────────────────────────
+// ─── @access Private — add or remove a fulfilled request attachment
+// ─── @body   { requestId, action: 'add' | 'remove' }
+exports.updateCollectionFulfillments = async (req, res, next) => {
+  try {
+    const { requestId, action } = req.body;
+
+    if (!requestId || !['add', 'remove'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide requestId and action ('add' or 'remove').",
+      });
+    }
+
+    const collection = await Collection.findById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ success: false, message: 'Collection not found.' });
+    }
+
+    if (collection.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorised.' });
+    }
+
+    if (action === 'add') {
+      const request = await NoteRequest.findById(requestId)
+        .select('requestedBy status fulfillment')
+        .populate('fulfillment.uploadedBy', 'name avatar');
+
+      if (!request) {
+        return res.status(404).json({ success: false, message: 'Request not found.' });
+      }
+
+      if (!request.fulfillment?.fileId || request.status !== 'fulfilled') {
+        return res.status(400).json({ success: false, message: 'Only fulfilled requests with attachments can be saved.' });
+      }
+
+      if (!canViewFulfillment(request.toObject(), req.user)) {
+        return res.status(403).json({ success: false, message: 'You cannot save this private fulfillment.' });
+      }
+    }
+
+    const operator = action === 'add'
+      ? { $addToSet: { requestFulfillments: requestId } }
+      : { $pull: { requestFulfillments: requestId } };
 
     const updated = await Collection.findByIdAndUpdate(req.params.id, operator, { new: true });
 

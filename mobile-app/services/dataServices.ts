@@ -151,6 +151,10 @@ export const collectionService = {
     const res = await api.put(`/collections/${id}/notes`, { noteId, action });
     return res.data;
   },
+  updateFulfillments: async (id: string, requestId: string, action: 'add' | 'remove') => {
+    const res = await api.put(`/collections/${id}/fulfillments`, { requestId, action });
+    return res.data;
+  },
   deleteCollection: async (id: string) => {
     const res = await api.delete(`/collections/${id}`);
     return res.data;

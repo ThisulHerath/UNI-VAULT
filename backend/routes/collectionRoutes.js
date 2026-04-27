@@ -7,6 +7,7 @@ const {
   getCollectionById,
   updateCollection,
   updateCollectionNotes,
+  updateCollectionFulfillments,
   deleteCollection,
 } = require('../controllers/collectionController');
 
@@ -20,6 +21,7 @@ router.get('/:id', getCollectionById);
 router.post('/',   createCollection);
 router.put('/:id',        updateCollection);
 router.put('/:id/notes',  updateCollectionNotes); // add/remove a note
+router.put('/:id/fulfillments', updateCollectionFulfillments); // add/remove a fulfilled request attachment
 router.delete('/:id',     deleteCollection);
 
 module.exports = router;

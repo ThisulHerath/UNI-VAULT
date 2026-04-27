@@ -17,6 +17,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import { io, Socket } from 'socket.io-client';
 import { groupService } from '../../services/dataServices';
+import {
+  getNoteSaveState,
+  getSavedStateMapForNotes,
+  removeNoteFromAllCollections,
+  saveNoteToCollections,
+} from '../../services/collectionLogic';
+import { useAppDialog } from '../../hooks/use-app-dialog';
 import { API_ORIGIN } from '../../services/api';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -89,6 +96,7 @@ const formatRelativeTime = (date?: Date | string) => {
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user, token } = useAuth();
+  const { showDialog, dialogElement } = useAppDialog();
 
   const [group, setGroup] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +121,8 @@ export default function GroupDetailScreen() {
     fileMimeType?: string;
     name?: string;
   } | null>(null);
+  const [savingSharedNoteId, setSavingSharedNoteId] = useState<string | null>(null);
+  const [sharedNoteSavedState, setSharedNoteSavedState] = useState<Record<string, boolean>>({});
   const socketRef = useRef<Socket | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const shouldAutoScrollRef = useRef(false);
@@ -152,6 +162,40 @@ export default function GroupDetailScreen() {
       shouldAutoScrollRef.current = true;
     }
   }, [activeSection]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncSavedState = async () => {
+      if (!user?._id) {
+        if (mounted) setSharedNoteSavedState({});
+        return;
+      }
+
+      const sharedNotes = Array.isArray(group?.sharedNotes) ? group.sharedNotes : [];
+      const noteIds = sharedNotes
+        .map((note: any) => note?._id || note?.id)
+        .filter(Boolean)
+        .map((noteId: any) => String(noteId));
+
+      if (!noteIds.length) {
+        if (mounted) setSharedNoteSavedState({});
+        return;
+      }
+
+      try {
+        const nextState = await getSavedStateMapForNotes(noteIds);
+        if (mounted) setSharedNoteSavedState(nextState);
+      } catch {
+        if (mounted) setSharedNoteSavedState({});
+      }
+    };
+
+    syncSavedState();
+    return () => {
+      mounted = false;
+    };
+  }, [group?.sharedNotes, user?._id]);
 
   // Socket.IO setup for real-time chat
   useEffect(() => {
@@ -464,6 +508,96 @@ export default function GroupDetailScreen() {
   const cancelDeleteMessage = () => setDeleteConfirmation(null);
   const closeAttachmentPreview = () => setActiveAttachment(null);
 
+  const handleToggleSharedNoteSave = (note: any) => {
+    const noteId = note?._id || note?.id;
+    if (!noteId) {
+      Toast.show({ type: 'error', text1: 'Invalid note', text2: 'This note cannot be saved right now.' });
+      return;
+    }
+
+    if (!user?._id) {
+      showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
+        { label: 'Okay', role: 'default' },
+      ]);
+      return;
+    }
+
+    if (savingSharedNoteId) return;
+
+    const isSaved = !!sharedNoteSavedState[String(noteId)];
+
+    if (!isSaved) {
+      showDialog('Save Group Note', 'Save this shared note to your collections?', [
+        { label: 'Not Now', role: 'cancel' },
+        {
+          label: 'Save',
+          onPress: async () => {
+            try {
+              setSavingSharedNoteId(String(noteId));
+              const result = await saveNoteToCollections(String(noteId));
+              setSharedNoteSavedState((prev) => ({ ...prev, [String(noteId)]: true }));
+              Toast.show({
+                type: 'success',
+                text1: 'Saved to Collection',
+                text2: result.createdCollection
+                  ? `Created ${result.collectionName} and saved this note.`
+                  : `Saved to ${result.collectionName}.`,
+              });
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Save Failed',
+                text2: error?.message || 'Unable to save this shared note.',
+              });
+            } finally {
+              setSavingSharedNoteId(null);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+
+    showDialog('Remove Saved Note', 'Remove this shared note from your saved collections?', [
+      { label: 'Cancel', role: 'cancel' },
+      {
+        label: 'Remove',
+        role: 'destructive',
+        onPress: async () => {
+          try {
+            setSavingSharedNoteId(String(noteId));
+            const state = await getNoteSaveState(String(noteId));
+            if (!state.collectionCount) {
+              setSharedNoteSavedState((prev) => ({ ...prev, [String(noteId)]: false }));
+              Toast.show({
+                type: 'error',
+                text1: 'Already Removed',
+                text2: 'This note is not in your collections anymore.',
+              });
+              return;
+            }
+
+            const removedCount = await removeNoteFromAllCollections(String(noteId));
+            setSharedNoteSavedState((prev) => ({ ...prev, [String(noteId)]: false }));
+            Toast.show({
+              type: 'success',
+              text1: 'Removed from Collections',
+              text2: `Removed from ${removedCount} collection${removedCount === 1 ? '' : 's'}.`,
+            });
+          } catch (error: any) {
+            Toast.show({
+              type: 'error',
+              text1: 'Remove Failed',
+              text2: error?.message || 'Unable to remove this shared note.',
+            });
+          } finally {
+            setSavingSharedNoteId(null);
+          }
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -534,6 +668,47 @@ export default function GroupDetailScreen() {
                   <Text style={styles.meta}>Invitation Code: {group.invitationCode}</Text>
                 )}
               </View>
+
+              {isMember && (
+                <View style={styles.card}>
+                  <Text style={styles.sectionTitle}>Shared Notes</Text>
+                  {Array.isArray(group.sharedNotes) && group.sharedNotes.length > 0 ? (
+                    group.sharedNotes.map((note: any) => {
+                      const noteId = String(note?._id || note?.id || '');
+                      const isSaved = !!sharedNoteSavedState[noteId];
+                      const isBusy = savingSharedNoteId === noteId;
+
+                      return (
+                        <View key={noteId} style={styles.sharedNoteRow}>
+                          <TouchableOpacity style={styles.sharedNoteInfo} onPress={() => router.push(`/note/${noteId}`)}>
+                            <Text style={styles.sharedNoteTitle} numberOfLines={1}>{note?.title || 'Untitled note'}</Text>
+                            <Text style={styles.sharedNoteMeta} numberOfLines={1}>
+                              {note?.subject?.name || note?.subjectText || 'No subject'}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.sharedNoteSaveBtn, isSaved && styles.sharedNoteSaveBtnActive, isBusy && { opacity: 0.7 }]}
+                            onPress={() => handleToggleSharedNoteSave(note)}
+                            disabled={isBusy}
+                          >
+                            {isBusy ? (
+                              <ActivityIndicator size="small" color={Colors.text} />
+                            ) : (
+                              <>
+                                <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={16} color={Colors.text} />
+                                <Text style={styles.sharedNoteSaveText}>{isSaved ? 'Saved' : 'Save'}</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.meta}>No shared notes yet.</Text>
+                  )}
+                </View>
+              )}
 
               {!isMember && (
                 <View style={styles.card}>
@@ -1046,6 +1221,8 @@ export default function GroupDetailScreen() {
           )}
         </View>
       </Modal>
+
+      {dialogElement}
     </View>
   );
 }
@@ -1100,6 +1277,29 @@ const styles = StyleSheet.create({
   desc: { fontSize: FontSizes.md, color: Colors.textMuted, marginBottom: Spacing.md },
   meta: { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 4 },
   sectionTitle: { fontSize: FontSizes.md, color: Colors.text, fontWeight: '700', marginBottom: Spacing.sm },
+  sharedNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  sharedNoteInfo: { flex: 1 },
+  sharedNoteTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
+  sharedNoteMeta: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 2 },
+  sharedNoteSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.secondary,
+    borderRadius: Radius.full,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  sharedNoteSaveBtnActive: { backgroundColor: Colors.primary },
+  sharedNoteSaveText: { color: Colors.text, fontSize: FontSizes.xs, fontWeight: '700' },
   input: {
     backgroundColor: Colors.background,
     borderWidth: 1,
