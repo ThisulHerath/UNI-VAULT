@@ -244,6 +244,36 @@ export default function CollectionsScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
+                <View style={styles.filterGroup}>
+                  {(['all', 'high', 'normal', 'low'] as FilterOption[]).map((f) => (
+                    <TouchableOpacity
+                      key={f}
+                      style={[styles.filterBtn, filterPriority === f && styles.filterBtnActive]}
+                      onPress={() => setFilterPriority(f)}
+                    >
+                      <Text style={[styles.filterBtnText, filterPriority === f && styles.filterBtnTextActive]}>
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.sortGroup}>
+                  <TouchableOpacity style={styles.sortBtn} onPress={() => setSortOption('date')}>
+                    <Ionicons name="calendar-outline" size={14} color={sortOption === 'date' ? Colors.surface : Colors.text} />
+                    <Text style={[styles.sortBtnText, sortOption === 'date' && styles.sortBtnTextActive]}>Date</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sortBtn} onPress={() => setSortOption('name')}>
+                    <Ionicons name="text-outline" size={14} color={sortOption === 'name' ? Colors.surface : Colors.text} />
+                    <Text style={[styles.sortBtnText, sortOption === 'name' && styles.sortBtnTextActive]}>Name</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sortBtn} onPress={() => setSortOption('priority')}>
+                    <Ionicons name="flag-outline" size={14} color={sortOption === 'priority' ? Colors.surface : Colors.text} />
+                    <Text style={[styles.sortBtnText, sortOption === 'priority' && styles.sortBtnTextActive]}>Priority</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </>
           }
           ListEmptyComponent={<Text style={styles.empty}>No collections yet. Save notes to create one!</Text>}
