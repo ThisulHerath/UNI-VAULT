@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image,
   Animated, Easing,
 } from 'react-native';
@@ -11,10 +11,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
-const GOLD = '#E8A838';
-const FIELD_BG = '#160C05';
-const BORDER_IDLE = '#2E1A0A';
-const BORDER_FOCUS = '#C0392B';
+const ACCENT = Colors.primary;
+const ICON_MUTED = Colors.textMuted;
+const FIELD_BG = '#F1F5F9';
+const BORDER_IDLE = '#E2E8F0';
+const BORDER_FOCUS = '#3B82F6';
 
 const resolveImageMimeType = (filename: string) => {
   const extension = filename.split('.').pop()?.toLowerCase();
@@ -62,21 +63,21 @@ function FormField({ label, value, onChangeText, icon, secureTextEntry, optional
 
   useEffect(() => {
     Animated.timing(labelAnim, { toValue: value ? 1 : (focused ? 1 : 0), duration: 180, useNativeDriver: false }).start();
-  }, [value]);
+  }, [value, focused, labelAnim]);
 
   const borderColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: [BORDER_IDLE, BORDER_FOCUS] });
   const labelTop = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 5] });
   const labelSize = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 11] });
-  const labelColor = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [Colors.textMuted, GOLD] });
+  const labelColor = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [Colors.textMuted, ACCENT] });
 
   return (
     <Animated.View style={[fStyles.wrapper, { borderColor }]}>
       <View style={fStyles.iconCol}>
-        <Ionicons name={icon as any} size={15} color={focused ? GOLD : '#4A3520'} />
+        <Ionicons name={icon as any} size={15} color={focused ? ACCENT : ICON_MUTED} />
       </View>
       <View style={fStyles.fieldArea}>
         <Animated.Text style={[fStyles.floatLabel, { top: labelTop, fontSize: labelSize, color: labelColor }]}>
-          {label}{optional && <Text style={{ color: '#3A2510' }}> (optional)</Text>}
+          {label}{optional && <Text style={{ color: Colors.textMuted }}> (optional)</Text>}
         </Animated.Text>
         <TextInput
           style={fStyles.input}
@@ -90,7 +91,7 @@ function FormField({ label, value, onChangeText, icon, secureTextEntry, optional
       </View>
       {secureTextEntry && (
         <TouchableOpacity onPress={() => setShowPass(s => !s)} style={fStyles.eyeBtn}>
-          <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={15} color="#4A3520" />
+          <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={15} color={ICON_MUTED} />
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -158,15 +159,15 @@ const stepStyles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#1C1008',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1.5,
-    borderColor: '#2E1A0A',
+    borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
   },
   dotActive: {
     borderColor: Colors.primary,
-    backgroundColor: `${Colors.primary}20`,
+    backgroundColor: `${Colors.primary}18`,
   },
   dotDone: {
     backgroundColor: Colors.primary,
@@ -192,7 +193,7 @@ export default function RegisterScreen() {
       Animated.timing(cardAnim, { toValue: 1, duration: 500, delay: 150, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(cardRise, { toValue: 0, duration: 500, delay: 150, easing: Easing.out(Easing.back(1.1)), useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [cardAnim, cardRise]);
 
   const update = (field: keyof typeof form) => (value: string) =>
     setForm(prev => ({ ...prev, [field]: value }));
@@ -257,23 +258,20 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
 
         {/* Background */}
         <View style={styles.orbTopRight} pointerEvents="none" />
         <View style={styles.orbBottomLeft} pointerEvents="none" />
 
-        <Pressable
-          style={({ pressed }) => [styles.backNavButton, pressed && styles.backNavButtonPressed]}
+        <TouchableOpacity
+          style={styles.backNavButton}
           onPress={handleBackToWelcome}
-          hitSlop={12}
-          android_ripple={{ color: '#2A1A0E' }}
+          activeOpacity={0.6}
         >
-          <View style={styles.backNavIcon}>
-            <Ionicons name="arrow-back" size={14} color={Colors.textMuted} />
-          </View>
+          <Ionicons name="arrow-back" size={18} color={Colors.textMuted} />
           <Text style={styles.backNavText}>Back</Text>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Header */}
         <Animated.View style={[styles.header, { opacity: cardAnim }]}>
@@ -309,7 +307,7 @@ export default function RegisterScreen() {
 
           {/* Section: Identity */}
           <View style={styles.sectionLabel}>
-            <Ionicons name="person-circle-outline" size={13} color={GOLD} />
+            <Ionicons name="person-circle-outline" size={13} color={Colors.primary} />
             <Text style={styles.sectionLabelText}>Your Identity</Text>
           </View>
 
@@ -318,7 +316,7 @@ export default function RegisterScreen() {
 
           {/* Section: Security */}
           <View style={[styles.sectionLabel, { marginTop: 6 }]}>
-            <Ionicons name="shield-checkmark-outline" size={13} color={GOLD} />
+            <Ionicons name="shield-checkmark-outline" size={13} color={Colors.primary} />
             <Text style={styles.sectionLabelText}>Security</Text>
           </View>
 
@@ -327,7 +325,7 @@ export default function RegisterScreen() {
 
           {/* Section: Academic */}
           <View style={[styles.sectionLabel, { marginTop: 6 }]}>
-            <Ionicons name="school-outline" size={13} color={GOLD} />
+            <Ionicons name="school-outline" size={13} color={Colors.primary} />
             <Text style={styles.sectionLabelText}>Academic Info</Text>
             <View style={styles.optionalBadge}><Text style={styles.optionalBadgeText}>optional</Text></View>
           </View>
@@ -336,7 +334,7 @@ export default function RegisterScreen() {
           <FormField label="Batch / Intake" icon="calendar-outline" value={form.batch} onChangeText={update('batch')} autoCapitalize="characters" optional />
 
           <View style={[styles.sectionLabel, { marginTop: 6 }]}>
-            <Ionicons name="image-outline" size={13} color={GOLD} />
+            <Ionicons name="image-outline" size={13} color={Colors.primary} />
             <Text style={styles.sectionLabelText}>Profile Image</Text>
             <View style={styles.optionalBadge}><Text style={styles.optionalBadgeText}>optional</Text></View>
           </View>
@@ -355,7 +353,7 @@ export default function RegisterScreen() {
                 This image will be shown on home, profile, and group chats.
               </Text>
             </View>
-            <Ionicons name="camera-outline" size={18} color={GOLD} />
+            <Ionicons name="camera-outline" size={18} color={Colors.primary} />
           </TouchableOpacity>
 
           {/* Submit */}
@@ -398,7 +396,7 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0E0703' },
+  container: { flex: 1, backgroundColor: Colors.background },
   scroll: { flexGrow: 1, padding: Spacing.lg, paddingTop: Spacing.xl },
   orbTopRight: {
     position: 'absolute',
@@ -407,7 +405,7 @@ const styles = StyleSheet.create({
     borderRadius: 120,
     top: -80,
     right: -80,
-    backgroundColor: `${Colors.primary}1A`,
+    backgroundColor: `${Colors.primary}14`,
   },
   orbBottomLeft: {
     position: 'absolute',
@@ -416,32 +414,18 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     bottom: 0,
     left: -80,
-    backgroundColor: `${GOLD}0C`,
+    backgroundColor: '#DBEAFE',
   },
   backNavButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    marginBottom: Spacing.lg,
-    zIndex: 20,
-    elevation: 20,
-    position: 'relative',
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 999,
+    elevation: 999,
   },
-  backNavButtonPressed: {
-    opacity: 0.85,
-  },
-  backNavIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#1C1008',
-    borderWidth: 1,
-    borderColor: '#2E1A0A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backNavText: { color: Colors.textMuted, fontSize: 13, fontWeight: '600' },
+  backNavText: { color: Colors.textMuted, fontSize: 14, fontWeight: '600', marginLeft: 6 },
   header: { alignItems: 'center', marginBottom: Spacing.lg },
   logoRow: {
     flexDirection: 'row',
@@ -453,23 +437,23 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 11,
-    backgroundColor: '#1C0A04',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: `${Colors.primary}40`,
+    borderColor: `${Colors.primary}20`,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: { fontSize: 24, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: Colors.textMuted },
   card: {
-    backgroundColor: '#130A04',
+    backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#2E1A0A',
+    borderColor: Colors.border,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
@@ -498,12 +482,12 @@ const styles = StyleSheet.create({
   stepLine: {
     width: 18,
     height: 2,
-    backgroundColor: '#2E1A0A',
+    backgroundColor: '#BFDBFE',
     marginHorizontal: 3,
     borderRadius: 1,
   },
   stepLineDone: { backgroundColor: Colors.primary },
-  divider: { height: 1, backgroundColor: '#1E1008', marginVertical: 14 },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 14 },
   sectionLabel: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -513,24 +497,24 @@ const styles = StyleSheet.create({
   sectionLabelText: {
     fontSize: 11,
     fontWeight: '700',
-    color: GOLD,
+    color: Colors.primary,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   optionalBadge: {
-    backgroundColor: '#1E1008',
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 4,
   },
-  optionalBadgeText: { fontSize: 10, color: '#4A3520', fontWeight: '600' },
+  optionalBadgeText: { fontSize: 10, color: Colors.textMuted, fontWeight: '600' },
   avatarPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     borderWidth: 1.5,
-    borderColor: '#2E1A0A',
+    borderColor: Colors.border,
     backgroundColor: FIELD_BG,
     borderRadius: Radius.md,
     padding: 10,
@@ -545,9 +529,9 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#1E1008',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: '#2E1A0A',
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -575,17 +559,17 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   btnInner: { flexDirection: 'row', alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '800', fontSize: FontSizes.md, letterSpacing: 0.2 },
+  buttonText: { color: Colors.surface, fontWeight: '800', fontSize: FontSizes.md, letterSpacing: 0.2 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
   footerText: { color: Colors.textMuted, fontSize: FontSizes.sm },
   link: { color: Colors.primary, fontWeight: '700', fontSize: FontSizes.sm },
   bottomNote: {
     textAlign: 'center',
-    color: '#2E1A0A',
+    color: Colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.8,
     marginTop: Spacing.xl,
     marginBottom: Spacing.md,
-  },
+  }
 });

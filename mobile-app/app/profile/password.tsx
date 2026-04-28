@@ -10,20 +10,20 @@ import Toast from 'react-native-toast-message';
 import { authService } from '../../services/authService';
 
 const C = {
-  bg: '#0A0705',
-  surface: '#130F0C',
-  surfaceAlt: '#1A1410',
-  border: '#2A1F18',
-  primary: '#C8392B',
-  primaryLight: '#E8503F',
-  text: '#F5EDE8',
-  textMuted: '#8A7060',
-  textDim: '#5A4030',
-  placeholder: '#4A3020',
-  inputBg: '#160E0A',
-  success: '#2ECC71',
-  error: '#E74C3C',
-  warning: '#F39C12',
+  bg: '#F8FAFC',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F1F5F9',
+  border: '#E2E8F0',
+  primary: '#3B82F6',
+  primaryLight: '#60A5FA',
+  text: '#0F172A',
+  textMuted: '#64748B',
+  textDim: '#94A3B8',
+  placeholder: '#94A3B8',
+  inputBg: '#F1F5F9',
+  success: '#22C55E',
+  error: '#EF4444',
+  warning: '#F59E0B',
 };
 
 type Field = { key: 'current' | 'newPassword' | 'confirm'; label: string; hint?: string };

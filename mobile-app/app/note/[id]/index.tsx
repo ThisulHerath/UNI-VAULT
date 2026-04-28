@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Linking, TextInput, Modal, Animated, Easing, Image,
@@ -16,6 +16,7 @@ import {
 } from '../../../services/collectionLogic';
 import { useAppDialog } from '../../../hooks/use-app-dialog';
 import { Colors, FontSizes, Spacing, Radius } from '../../../constants/theme';
+import { SkeletonBlock } from '../../../components/ui/skeleton-block';
 
 const REVIEW_PREFS_KEY = 'univault_review_prefs';
 const REVIEW_FILTERS = [
@@ -145,7 +146,6 @@ export default function NoteDetailScreen() {
   const [reviewStats, setReviewStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const [refreshingReviews, setRefreshingReviews] = useState(false);
   const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
   const [myRating, setMyRating] = useState(0);
   const [myComment, setMyComment] = useState('');
@@ -170,6 +170,7 @@ export default function NoteDetailScreen() {
   const filterUnderlineX = useRef(new Animated.Value(0)).current;
   const filterUnderlineWidth = useRef(new Animated.Value(0)).current;
   const filterLayoutsRef = useRef<Record<string, { x: number; width: number }>>({});
+  const filterUnderlineInitializedRef = useRef(false);
   const starScaleAnims = useRef(Array.from({ length: 5 }, () => new Animated.Value(1))).current;
   const statsBarAnims = useRef([1, 2, 3, 4, 5].reduce((acc, star) => {
     acc[star] = new Animated.Value(0);
@@ -266,7 +267,8 @@ export default function NoteDetailScreen() {
     };
 
     transitionAndLoad();
-  }, [id, user?._id, prefsLoaded, sortBy, ratingFilter, breakdownStarFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?._id, prefsLoaded, sortBy, ratingFilter, breakdownStarFilter, listOpacityAnim, listTranslateAnim]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -316,9 +318,8 @@ export default function NoteDetailScreen() {
     ]).start();
   }, [ratingFilter, filterUnderlineWidth, filterUnderlineX]);
 
-  const refreshReviews = async ({ showLoader = false, pullToRefresh = false } = {}) => {
+  const refreshReviews = useCallback(async ({ showLoader = false, pullToRefresh = false } = {}) => {
     if (showLoader) setLoadingReviews(true);
-    if (pullToRefresh) setRefreshingReviews(true);
 
     try {
       const res = await noteService.getReviews(id, resolveReviewParams(sortBy, ratingFilter, breakdownStarFilter));
@@ -352,10 +353,9 @@ export default function NoteDetailScreen() {
       Toast.show({ type: 'error', text1: 'Error', text2: e.message || 'Failed to load reviews' });
     } finally {
       setLoadingReviews(false);
-      setRefreshingReviews(false);
       setLoadingMoreReviews(false);
     }
-  };
+  }, [id, sortBy, ratingFilter, breakdownStarFilter, user?._id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -630,7 +630,26 @@ export default function NoteDetailScreen() {
     await refreshReviews({ pullToRefresh: true });
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topBar}>
+          <SkeletonBlock width={24} height={24} borderRadius={12} />
+          <View style={styles.actions}>
+            <SkeletonBlock width={30} height={30} borderRadius={Radius.sm} />
+            <SkeletonBlock width={30} height={30} borderRadius={Radius.sm} />
+          </View>
+        </View>
+        <View style={styles.card}>
+          <SkeletonBlock width={74} height={20} borderRadius={Radius.full} />
+          <SkeletonBlock width="72%" height={22} borderRadius={10} style={{ marginTop: Spacing.sm }} />
+          <SkeletonBlock width="96%" height={14} borderRadius={8} style={{ marginTop: Spacing.md }} />
+          <SkeletonBlock width="65%" height={14} borderRadius={8} style={{ marginTop: 8 }} />
+          <SkeletonBlock width="100%" height={44} borderRadius={Radius.md} style={{ marginTop: Spacing.md }} />
+        </View>
+      </View>
+    );
+  }
   if (!note)   return <View style={styles.center}><Text style={styles.err}>Note not found.</Text></View>;
 
   const isOwner = note.uploadedBy?._id === user?._id;
@@ -675,9 +694,13 @@ export default function NoteDetailScreen() {
 
         <View style={styles.metaRow}>
           <Ionicons name="person-outline" size={13} color={Colors.textMuted} />
-          <Text style={styles.meta}>{note.uploadedBy?.name}</Text>
+          <Text style={[styles.meta, styles.metaPrimary]} numberOfLines={1}>
+            {note.uploadedBy?.name}
+          </Text>
           <Ionicons name="library-outline" size={13} color={Colors.textMuted} style={{ marginLeft: 12 }} />
-          <Text style={styles.meta}>{getNoteSubjectLabel(note)}</Text>
+          <Text style={[styles.meta, styles.metaSecondary]} numberOfLines={1} ellipsizeMode="tail">
+            {getNoteSubjectLabel(note)}
+          </Text>
         </View>
         <View style={styles.metaRow}>
           <Ionicons name="star" size={13} color={Colors.star} />
@@ -730,9 +753,10 @@ export default function NoteDetailScreen() {
                 onLayout={(event) => {
                   const { x, width } = event.nativeEvent.layout;
                   filterLayoutsRef.current[option.key] = { x, width };
-                  if (option.key === ratingFilter && filterUnderlineWidth.__getValue() === 0) {
+                  if (option.key === ratingFilter && !filterUnderlineInitializedRef.current) {
                     filterUnderlineX.setValue(x);
                     filterUnderlineWidth.setValue(width);
+                    filterUnderlineInitializedRef.current = true;
                   }
                 }}
                 onPress={() => {
@@ -1124,8 +1148,10 @@ const styles = StyleSheet.create({
   fileTypeText: { color: Colors.primary, fontSize: FontSizes.xs, fontWeight: '700' },
   title:        { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.text, marginBottom: 6 },
   desc:         { fontSize: FontSizes.md, color: Colors.textMuted, marginBottom: Spacing.sm },
-  metaRow:      { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  metaRow:      { flexDirection: 'row', alignItems: 'center', marginTop: 4, minWidth: 0 },
   meta:         { fontSize: FontSizes.xs, color: Colors.textMuted, marginLeft: 4 },
+  metaPrimary:  { maxWidth: '36%' },
+  metaSecondary:{ flex: 1, minWidth: 0 },
   tagRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: Spacing.sm },
   tag:          { backgroundColor: Colors.surfaceAlt, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
   tagText:      { fontSize: FontSizes.xs, color: Colors.textMuted },
@@ -1191,7 +1217,7 @@ const styles = StyleSheet.create({
   ratingBarCount: { width: 40, textAlign: 'right', fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: '700' },
   reportedBanner:{ backgroundColor: Colors.error + '15', borderRadius: Radius.md, padding: 8, marginBottom: Spacing.sm },
   reportedText:  { color: Colors.error, fontSize: FontSizes.xs, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: Spacing.md },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: Spacing.md },
   modalCard: { backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md },
   modalTitle: { fontSize: FontSizes.lg, fontWeight: '700', color: Colors.text },
   modalSubtitle: { marginTop: 4, fontSize: FontSizes.sm, color: Colors.textMuted },

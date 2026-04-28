@@ -10,11 +10,11 @@ import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
-const GOLD = '#E8A838';
-const RED_BRIGHT = '#E8453C';
-const FIELD_BG = '#160C05';
-const BORDER_IDLE = '#2E1A0A';
-const BORDER_FOCUS = '#C0392B';
+const ACCENT = Colors.primary;
+const ICON_MUTED = Colors.textMuted;
+const FIELD_BG = '#F1F5F9';
+const BORDER_IDLE = '#E2E8F0';
+const BORDER_FOCUS = '#3B82F6';
 
 interface FloatingLabelInputProps {
   label: string;
@@ -53,17 +53,17 @@ function FloatingLabelInput({ label, value, onChangeText, icon, secureTextEntry,
 
   useEffect(() => {
     Animated.timing(labelAnim, { toValue: value ? 1 : (focused ? 1 : 0), duration: 180, useNativeDriver: false }).start();
-  }, [value]);
+  }, [value, focused, labelAnim]);
 
   const borderColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: [BORDER_IDLE, BORDER_FOCUS] });
   const labelTop = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 5] });
   const labelSize = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 11] });
-  const labelColor = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [Colors.textMuted, GOLD] });
+  const labelColor = labelAnim.interpolate({ inputRange: [0, 1], outputRange: [Colors.textMuted, ACCENT] });
 
   return (
     <Animated.View style={[inputStyles.wrapper, { borderColor }]}>
       <View style={inputStyles.iconCol}>
-        <Ionicons name={icon as any} size={16} color={focused ? GOLD : '#4A3520'} />
+        <Ionicons name={icon as any} size={16} color={focused ? ACCENT : ICON_MUTED} />
       </View>
       <View style={inputStyles.fieldArea}>
         <Animated.Text style={[inputStyles.floatLabel, { top: labelTop, fontSize: labelSize, color: labelColor }]}>
@@ -82,7 +82,7 @@ function FloatingLabelInput({ label, value, onChangeText, icon, secureTextEntry,
       </View>
       {secureTextEntry && (
         <TouchableOpacity onPress={() => setShowPass(s => !s)} style={inputStyles.eyeBtn}>
-          <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={16} color="#4A3520" />
+          <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={16} color={ICON_MUTED} />
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -144,7 +144,7 @@ export default function LoginScreen() {
       Animated.timing(cardAnim, { toValue: 1, duration: 500, delay: 150, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(cardRise, { toValue: 0, duration: 500, delay: 150, easing: Easing.out(Easing.back(1.1)), useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [cardAnim, cardRise]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -262,7 +262,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0E0703' },
+  container: { flex: 1, backgroundColor: Colors.background },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: Spacing.lg, paddingTop: Spacing.xl },
   orbTopRight: {
     position: 'absolute',
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     bottom: 40,
     left: -80,
-    backgroundColor: `${GOLD}10`,
+    backgroundColor: '#DBEAFE',
   },
   backBtn: {
     flexDirection: 'row',
@@ -293,9 +293,9 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#1C1008',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: '#2E1A0A',
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -311,23 +311,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#1C0A04',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: `${Colors.primary}40`,
+    borderColor: `${Colors.primary}20`,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: { fontSize: 26, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: Colors.textMuted, letterSpacing: 0.2 },
   card: {
-    backgroundColor: '#130A04',
+    backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#2E1A0A',
+    borderColor: Colors.border,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 24, fontWeight: '800', color: Colors.text, marginBottom: 4, marginTop: 4 },
   subtitle: { fontSize: 13, color: Colors.textMuted, marginBottom: 0 },
-  divider: { height: 1, backgroundColor: '#1E1008', marginVertical: 16 },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 16 },
   button: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.md,
@@ -358,13 +358,13 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   btnInner: { flexDirection: 'row', alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '800', fontSize: FontSizes.md, letterSpacing: 0.2 },
+  buttonText: { color: Colors.surface, fontWeight: '800', fontSize: FontSizes.md, letterSpacing: 0.2 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
   footerText: { color: Colors.textMuted, fontSize: FontSizes.sm },
   link: { color: Colors.primary, fontWeight: '700', fontSize: FontSizes.sm },
   bottomNote: {
     textAlign: 'center',
-    color: '#2E1A0A',
+    color: Colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.8,

@@ -1,10 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { collectionService } from '../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../constants/theme';
+import { SkeletonBlock } from '../components/ui/skeleton-block';
+
+function CollectionsSkeletonList() {
+  return (
+    <View style={{ padding: Spacing.md, paddingBottom: 120 }}>
+      {[0, 1, 2, 3].map((idx) => (
+        <View key={idx} style={styles.card}>
+          <SkeletonBlock width={40} height={40} borderRadius={Radius.sm} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBlock width="68%" height={14} borderRadius={8} />
+            <SkeletonBlock width="42%" height={11} borderRadius={8} style={{ marginTop: 8 }} />
+          </View>
+          <SkeletonBlock width={18} height={18} borderRadius={9} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export default function CollectionsScreen() {
   const [collections, setCollections] = useState<any[]>([]);
@@ -54,14 +72,14 @@ export default function CollectionsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
+        <CollectionsSkeletonList />
       ) : (
         <FlatList
           data={collections}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
-          contentContainerStyle={{ padding: Spacing.md }}
+          contentContainerStyle={{ padding: Spacing.md, paddingBottom: 120 }}
           ListEmptyComponent={<Text style={styles.empty}>No collections yet. Save notes to create one!</Text>}
         />
       )}
@@ -70,13 +88,13 @@ export default function CollectionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  pageTitle: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
-  iconContainer: { backgroundColor: Colors.primary + '20', borderRadius: Radius.sm, padding: Spacing.sm, marginRight: Spacing.md },
+  container: { flex: 1, backgroundColor: '#F5F9FF' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
+  pageTitle: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.primary },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: '#BFDBFE' },
+  iconContainer: { backgroundColor: '#DBEAFE', borderRadius: Radius.sm, padding: Spacing.sm, marginRight: Spacing.md },
   infoContainer: { flex: 1 },
   title: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  meta: { fontSize: FontSizes.xs, color: Colors.textMuted },
+  meta: { fontSize: FontSizes.xs, color: Colors.primary },
   empty: { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
 });

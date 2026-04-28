@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Dimensions, Image
+  ActivityIndicator, Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
+import { Colors } from '../../constants/theme';
 import { noteService, requestService } from '../../services/dataServices';
 import {
   getNoteSaveState,
@@ -17,22 +18,20 @@ import {
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
 
-const { width } = Dimensions.get('window');
-
 // Matching the theme colors from your previous screen
 const C = {
-  bg: '#0A0705',
-  surface: '#130F0C',
-  surfaceAlt: '#1A1410',
-  border: '#2A1F18',
-  primary: '#C8392B',
-  primaryLight: '#E8503F',
-  accent: '#F5A623',
-  text: '#F5EDE8',
-  textMuted: '#8A7060',
-  textDim: '#5A4030',
-  placeholder: '#4A3020',
-  inputBg: '#160E0A',
+  bg: Colors.background,
+  surface: Colors.surface,
+  surfaceAlt: '#EFF6FF',
+  border: Colors.border,
+  primary: Colors.primary,
+  primaryLight: '#60A5FA',
+  accent: '#1D4ED8',
+  text: Colors.text,
+  textMuted: Colors.textMuted,
+  textDim: '#64748B',
+  placeholder: '#64748B',
+  inputBg: '#EFF6FF',
 };
 
 const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
@@ -277,7 +276,7 @@ export default function HomeScreen() {
             ))
         }
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
       {dialogElement}
     </View>
@@ -287,7 +286,7 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 120 },
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
@@ -308,29 +307,29 @@ const s = StyleSheet.create({
   qaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 8 },
   qaCard: {
     flex: 1, backgroundColor: C.surface, borderRadius: 16,
-    paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: C.border,
+    paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: C.primary + '24',
   },
-  qaIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.inputBg, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: C.border },
+  qaIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.inputBg, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: C.primary + '22' },
   qaLabel: { fontSize: 11, color: C.textMuted, fontWeight: '700', textAlign: 'center' },
 
   // Note Cards
   noteCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
     borderRadius: 16, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: C.primary + '20',
   },
   noteMain: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   noteIcon: { width: 48, height: 48, borderRadius: 12, overflow: 'hidden', marginRight: 12 },
   iconGrad: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   noteTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 4 },
   noteMeta: { fontSize: 12, color: C.textDim, fontWeight: '500' },
-  noteSaveBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  noteSaveBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.primary + '20' },
 
   // Request Cards
   reqCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
     borderRadius: 14, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: C.primary + '20',
   },
   reqIconCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.accent + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   reqText: { fontSize: 14, color: C.text, flex: 1, fontWeight: '500' },

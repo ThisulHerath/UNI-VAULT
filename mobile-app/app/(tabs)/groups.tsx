@@ -158,7 +158,7 @@ export default function GroupsScreen() {
       ) : (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
-          contentContainerStyle={{ padding: Spacing.md, paddingTop: 4, paddingBottom: Spacing.lg }}
+          contentContainerStyle={{ padding: Spacing.md, paddingTop: 4, paddingBottom: 120 }}
         >
           <View style={styles.joinByCodeCard}>
             <View style={styles.joinByCodeTextWrap}>

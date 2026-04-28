@@ -17,27 +17,28 @@ import {
   saveNoteToCollections,
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
-import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+import { Colors, Spacing, Radius } from '../../constants/theme';
+import { SkeletonBlock } from '../../components/ui/skeleton-block';
 
 const { width } = Dimensions.get('window');
 
 // Enhanced color palette
 const C = {
-  bg: '#0A0705',
-  surface: '#130F0C',
-  surfaceAlt: '#1A1410',
-  border: '#2A1F18',
-  borderGlow: '#8B2A1A',
-  primary: '#C8392B',
-  primaryLight: '#E8503F',
-  primaryGlow: '#FF6B5B',
-  accent: '#F5A623',
-  text: '#F5EDE8',
-  textMuted: '#8A7060',
-  textDim: '#5A4030',
-  success: '#2ECC71',
-  error: '#E74C3C',
-  card: '#160E0A',
+  bg: Colors.background,
+  surface: Colors.surface,
+  surfaceAlt: '#EFF6FF',
+  border: Colors.border,
+  borderGlow: '#BFDBFE',
+  primary: Colors.primary,
+  primaryLight: '#60A5FA',
+  primaryGlow: '#93C5FD',
+  accent: '#1D4ED8',
+  text: Colors.text,
+  textMuted: Colors.textMuted,
+  textDim: '#94A3B8',
+  success: '#22C55E',
+  error: '#EF4444',
+  card: Colors.surface,
 };
 
 export default function ProfileScreen() {
@@ -154,20 +155,56 @@ export default function ProfileScreen() {
   };
 
   if (loading) return (
-    <View style={[s.center, { backgroundColor: C.bg }]}>
-      <ActivityIndicator size="large" color={C.primary} />
-    </View>
+    <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
+      <View style={s.heroWrap}>
+        <SkeletonBlock width={92} height={92} borderRadius={46} />
+        <SkeletonBlock width={170} height={22} borderRadius={10} style={{ marginTop: 14 }} />
+        <SkeletonBlock width={200} height={14} borderRadius={8} style={{ marginTop: 8 }} />
+      </View>
+
+      <View style={s.statsCard}>
+        {[0, 1, 2].map((idx) => (
+          <React.Fragment key={idx}>
+            <View style={s.statItem}>
+              <SkeletonBlock width={28} height={28} borderRadius={8} />
+              <SkeletonBlock width={44} height={18} borderRadius={8} style={{ marginTop: 8 }} />
+              <SkeletonBlock width={52} height={10} borderRadius={8} style={{ marginTop: 6 }} />
+            </View>
+            {idx < 2 && <View style={s.statDivider} />}
+          </React.Fragment>
+        ))}
+      </View>
+
+      <View style={{ marginHorizontal: 16 }}>
+        {[0, 1, 2, 3].map((idx) => (
+          <View key={idx} style={s.menuItem}>
+            <SkeletonBlock width={38} height={38} borderRadius={10} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <SkeletonBlock width="58%" height={13} borderRadius={8} />
+              <SkeletonBlock width="72%" height={10} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={{ height: 120 }} />
+    </ScrollView>
   );
 
   const statusColor = (status: string) =>
-    status === 'open' ? C.success : status === 'fulfilled' ? C.accent : C.textMuted;
+    status === 'open' ? C.primary : status === 'fulfilled' ? C.success : C.textMuted;
 
   return (
     <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
+      <View pointerEvents="none" style={s.blurLayer}>
+        <View style={[s.blurOrb, s.blurOrbTop]} />
+        <View style={[s.blurOrb, s.blurOrbBottom]} />
+      </View>
 
       {/* ── HERO HEADER ── */}
       <View style={s.heroWrap}>
         <View style={s.heroGrad} />
+        <View style={s.heroOrbLeft} />
+        <View style={s.heroOrbRight} />
         {/* Decorative arcs */}
         <View style={s.arcOuter} />
         <View style={s.arcInner} />
@@ -359,7 +396,7 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={26} color={C.error} />
             </View>
             <Text style={s.modalTitle}>Sign Out?</Text>
-            <Text style={s.modalBody}>You'll need to log back in to access your account.</Text>
+            <Text style={s.modalBody}>You&apos;ll need to log back in to access your account.</Text>
             <View style={s.modalBtns}>
               <TouchableOpacity style={s.modalCancel} onPress={() => setShowSignOutModal(false)} disabled={signingOut}>
                 <Text style={s.modalCancelText}>Stay</Text>
@@ -373,7 +410,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {dialogElement}
-      <View style={{ height: 50 }} />
+      <View style={{ height: 120 }} />
     </ScrollView>
   );
 }
@@ -381,10 +418,16 @@ export default function ProfileScreen() {
 const s = StyleSheet.create({
   container:      { flex: 1, backgroundColor: C.bg },
   center:         { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  blurLayer:      { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  blurOrb:        { position: 'absolute', borderRadius: Radius.full },
+  blurOrbTop:     { width: 220, height: 220, top: -100, right: -70, backgroundColor: 'rgba(59,130,246,0.12)' },
+  blurOrbBottom:  { width: 200, height: 200, bottom: 120, left: -80, backgroundColor: 'rgba(96,165,250,0.11)' },
 
   // Hero
   heroWrap:       { alignItems: 'center', paddingTop: 70, paddingBottom: 32, overflow: 'hidden', position: 'relative' },
   heroGrad:       { ...StyleSheet.absoluteFillObject, backgroundColor: C.surface },
+  heroOrbLeft:    { position: 'absolute', width: 180, height: 180, borderRadius: 90, left: -60, top: 10, backgroundColor: 'rgba(59,130,246,0.10)' },
+  heroOrbRight:   { position: 'absolute', width: 160, height: 160, borderRadius: 80, right: -50, top: 60, backgroundColor: 'rgba(96,165,250,0.09)' },
   arcOuter:       { position: 'absolute', width: width * 1.4, height: width * 1.4, borderRadius: width * 0.7, borderWidth: 1, borderColor: C.primary + '18', top: -width * 0.5, alignSelf: 'center' },
   arcInner:       { position: 'absolute', width: width * 0.9, height: width * 0.9, borderRadius: width * 0.45, borderWidth: 1, borderColor: C.primary + '10', top: -width * 0.22, alignSelf: 'center' },
 
@@ -399,7 +442,7 @@ const s = StyleSheet.create({
   tagText:        { color: C.primary, fontSize: 11, fontWeight: '700' },
 
   // Stats
-  statsCard:      { flexDirection: 'row', marginHorizontal: 16, backgroundColor: C.surfaceAlt, borderRadius: 16, borderWidth: 1, borderColor: C.border, paddingVertical: 16, marginBottom: 12 },
+  statsCard:      { flexDirection: 'row', marginHorizontal: 16, backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.primary + '20', paddingVertical: 16, marginBottom: 12, shadowColor: C.primary, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   statItem:       { flex: 1, alignItems: 'center', gap: 4 },
   statIconWrap:   { width: 28, height: 28, borderRadius: 8, backgroundColor: C.primary + '15', justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
   statVal:        { fontSize: 20, fontWeight: '800', color: C.text },
@@ -408,7 +451,7 @@ const s = StyleSheet.create({
 
   // Badges
   badgesRow:      { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginBottom: 8, flexWrap: 'wrap' },
-  badge:          { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  badge:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: C.primary + '30', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
   badgeText:      { fontSize: 12, color: C.text, fontWeight: '600' },
 
   // Section
@@ -417,15 +460,15 @@ const s = StyleSheet.create({
   sectionTitle:   { fontSize: 16, fontWeight: '800', color: C.text, letterSpacing: 0.2 },
 
   // Notes
-  noteCard:       { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderRadius: 12, borderWidth: 1, borderColor: C.border, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8, marginHorizontal: 16 },
+  noteCard:       { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.primary + '20', paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8, marginHorizontal: 16 },
   noteMain:       { flexDirection: 'row', alignItems: 'center', flex: 1 },
   noteIconWrap:   { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   noteTitle:      { flex: 1, fontSize: 14, color: C.text, fontWeight: '500' },
-  bookmarkBtn:    { width: 32, height: 32, borderRadius: 8, backgroundColor: C.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  bookmarkBtn:    { width: 32, height: 32, borderRadius: 8, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.primary + '22' },
   bookmarkActive: { backgroundColor: C.primary + '15', borderColor: C.primary + '50' },
 
   // Empty
-  emptyCard:      { alignItems: 'center', paddingVertical: 24, marginHorizontal: 16, backgroundColor: C.surfaceAlt, borderRadius: 12, borderWidth: 1, borderColor: C.border, gap: 8, marginBottom: 8 },
+  emptyCard:      { alignItems: 'center', paddingVertical: 24, marginHorizontal: 16, backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.primary + '1E', gap: 8, marginBottom: 8 },
   emptyText:      { color: C.textMuted, fontSize: 13 },
 
   // See all
@@ -433,15 +476,15 @@ const s = StyleSheet.create({
   seeAllText:     { color: C.primary, fontSize: 13, fontWeight: '700' },
 
   // Requests
-  requestCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 8, marginHorizontal: 16 },
+  requestCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.primary + '20', padding: 14, marginBottom: 8, marginHorizontal: 16 },
   requestTitle:   { fontSize: 14, color: C.text, fontWeight: '600' },
   requestDesc:    { fontSize: 12, color: C.textMuted, marginTop: 2 },
-  statusPill:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4, gap: 5 },
+  statusPill:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4, gap: 5, backgroundColor: '#EFF6FF' },
   statusDot:      { width: 5, height: 5, borderRadius: 3 },
   statusText:     { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
 
   // Menu
-  menuItem:       { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 8, marginHorizontal: 16 },
+  menuItem:       { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.primary + '20', padding: 14, marginBottom: 8, marginHorizontal: 16 },
   menuIconBg:     { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12, backgroundColor: C.primary + '15' },
   menuText:       { flex: 1 },
   menuLabel:      { fontSize: 14, color: C.text, fontWeight: '700' },
@@ -451,8 +494,8 @@ const s = StyleSheet.create({
   signOutIconBg:  { width: 38, height: 38, borderRadius: 10, backgroundColor: C.error + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
 
   // Modal
-  overlay:        { flex: 1, backgroundColor: '#00000099', justifyContent: 'center', padding: 24 },
-  modalCard:      { backgroundColor: C.surfaceAlt, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 24, alignItems: 'center' },
+  overlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
+  modalCard:      { backgroundColor: C.surface, borderRadius: 20, borderWidth: 1, borderColor: C.primary + '30', padding: 24, alignItems: 'center' },
   modalIconCircle:{ width: 60, height: 60, borderRadius: 30, backgroundColor: C.error + '15', borderWidth: 1, borderColor: C.error + '30', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   modalTitle:     { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 8 },
   modalBody:      { fontSize: 14, color: C.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 },

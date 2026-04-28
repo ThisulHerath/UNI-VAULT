@@ -336,7 +336,10 @@ export default function CollectionDetailScreen() {
           />
         }
       >
-        <Text style={styles.sectionTitle}>Saved Notes</Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionTitle}>Saved Notes</Text>
+        </View>
         {notes.length
           ? notes.map((item: any, index: number) => (
             <View key={getItemKey(item, 'note', index)}>
@@ -345,7 +348,10 @@ export default function CollectionDetailScreen() {
           ))
           : <Text style={styles.emptyText}>No notes in this collection yet.</Text>}
 
-        <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Saved Fulfillments</Text>
+        <View style={[styles.sectionHeaderRow, styles.sectionSpacing]}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionTitle}>Saved Fulfillments</Text>
+        </View>
         {fulfillments.length
           ? fulfillments.map((item: any, index: number) => (
             <View key={getItemKey(item, 'fulfillment', index)}>
@@ -361,8 +367,8 @@ export default function CollectionDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, padding: Spacing.md },
+  container: { flex: 1, backgroundColor: '#F5F9FF' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F9FF', padding: Spacing.md },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -371,12 +377,14 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: '#BFDBFE',
   },
-  pageTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.text },
+  pageTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary },
   subtitle: { marginTop: 2, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: '600' },
-  listContent: { padding: Spacing.md },
-  sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800', marginBottom: Spacing.sm },
+  listContent: { padding: Spacing.md, paddingBottom: 120 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: 8 },
+  sectionAccent: { width: 3, height: 16, borderRadius: 2, backgroundColor: Colors.primary },
+  sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800' },
   sectionSpacing: { marginTop: Spacing.sm },
   noteCard: {
     flexDirection: 'row',
@@ -384,15 +392,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#BFDBFE',
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
   },
   noteInfo: { flex: 1 },
   noteTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
-  noteMeta: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 3 },
-  privateHint: { color: Colors.warning, fontSize: FontSizes.xs, marginTop: 3 },
+  noteMeta: { color: Colors.primary, fontSize: FontSizes.xs, marginTop: 3 },
+  privateHint: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 3 },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   openAttachmentBtn: {
     width: 34,
@@ -400,18 +408,22 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
   removeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.error,
+    backgroundColor: '#FEE2E2',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  removeBtnText: { color: Colors.text, fontSize: FontSizes.xs, fontWeight: '700' },
+  removeBtnText: { color: Colors.error, fontSize: FontSizes.xs, fontWeight: '700' },
   emptyText: { color: Colors.textMuted, fontSize: FontSizes.sm, textAlign: 'center', marginBottom: Spacing.sm },
   backBtn: {
     marginTop: Spacing.md,

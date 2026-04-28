@@ -22,7 +22,7 @@ export default function NotFound() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E0703',
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   buttonText: {
-    color: '#fff',
+    color: Colors.surface,
     fontWeight: '800',
     fontSize: FontSizes.md,
   },

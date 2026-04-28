@@ -14,8 +14,31 @@ import {
 } from '../services/collectionLogic';
 import { useAppDialog } from '../hooks/use-app-dialog';
 import { Colors, FontSizes, Spacing, Radius } from '../constants/theme';
+import { SkeletonBlock } from '../components/ui/skeleton-block';
 
 const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
+
+function MyNotesSkeletonList() {
+  return (
+    <View style={{ padding: Spacing.md, paddingBottom: 120 }}>
+      {[0, 1, 2, 3].map((idx) => (
+        <View key={idx} style={styles.card}>
+          <View style={styles.cardMain}>
+            <SkeletonBlock width={40} height={40} borderRadius={Radius.sm} />
+            <View style={{ flex: 1 }}>
+              <SkeletonBlock width="66%" height={14} borderRadius={8} />
+              <SkeletonBlock width="45%" height={11} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+          </View>
+          <View style={styles.cardActions}>
+            <SkeletonBlock width={34} height={34} borderRadius={Radius.full} />
+            <SkeletonBlock width={18} height={18} borderRadius={9} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export default function MyNotesScreen() {
   const { user } = useAuth();
@@ -193,14 +216,14 @@ export default function MyNotesScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
+        <MyNotesSkeletonList />
       ) : (
         <FlatList
           data={notes}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
-          contentContainerStyle={{ padding: Spacing.md }}
+          contentContainerStyle={{ padding: Spacing.md, paddingBottom: 120 }}
           ListEmptyComponent={<Text style={styles.empty}>You have not uploaded any notes yet.</Text>}
         />
       )}
@@ -211,23 +234,25 @@ export default function MyNotesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  pageTitle: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
+  container: { flex: 1, backgroundColor: '#F5F9FF' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
+  pageTitle: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.primary },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: '#BFDBFE' },
   cardMain: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: Spacing.sm },
   saveBtn: {
     width: 34,
     height: 34,
     borderRadius: Radius.full,
-    backgroundColor: Colors.secondary,
+    backgroundColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
-  iconContainer: { backgroundColor: Colors.primary + '20', borderRadius: Radius.sm, padding: Spacing.sm, marginRight: Spacing.md },
+  iconContainer: { backgroundColor: '#DBEAFE', borderRadius: Radius.sm, padding: Spacing.sm, marginRight: Spacing.md },
   infoContainer: { flex: 1 },
   title: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  meta: { fontSize: FontSizes.xs, color: Colors.textMuted },
+  meta: { fontSize: FontSizes.xs, color: Colors.primary },
   empty: { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
 });

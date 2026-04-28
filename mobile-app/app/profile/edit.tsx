@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image, Dimensions,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -10,23 +10,20 @@ import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
-import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
-
-const { width } = Dimensions.get('window');
 
 const C = {
-  bg: '#0A0705',
-  surface: '#130F0C',
-  surfaceAlt: '#1A1410',
-  border: '#2A1F18',
-  primary: '#C8392B',
-  primaryLight: '#E8503F',
-  accent: '#F5A623',
-  text: '#F5EDE8',
-  textMuted: '#8A7060',
-  textDim: '#5A4030',
-  placeholder: '#4A3020',
-  inputBg: '#160E0A',
+  bg: '#F8FAFC',
+  surface: '#F8FAFC',
+  surfaceAlt: '#F1F5F9',
+  border: '#E2E8F0',
+  primary: '#3B82F6',
+  primaryLight: '#60A5FA',
+  accent: '#8B5CF6',
+  text: '#0F172A',
+  textMuted: '#64748B',
+  textDim: '#94A3B8',
+  placeholder: '#94A3B8',
+  inputBg: '#F8FAFC',
 };
 
 const resolveImageMimeType = (filename: string) => {
@@ -123,7 +120,7 @@ export default function EditProfileScreen() {
                 {avatarUri
                   ? <Image source={{ uri: avatarUri }} style={s.avatarImg} />
                   : (
-                    <LinearGradient colors={[C.primaryLight, C.primary, '#7A1A10']} style={s.avatarImg}>
+                    <LinearGradient colors={[C.primaryLight, C.primary, '#2563EB']} style={s.avatarImg}>
                       <Ionicons name="person" size={38} color="#fff" />
                     </LinearGradient>
                   )
@@ -207,7 +204,7 @@ const s = StyleSheet.create({
   backBtn:        { width: 36, height: 36, borderRadius: 10, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
   headerTitle:    { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: 0.2 },
 
-  content:        { padding: 20, paddingBottom: 40 },
+  content:        { padding: 20, paddingBottom: 120 },
 
   // Avatar
   avatarSection:  { alignItems: 'center', marginTop: 8, marginBottom: 28 },

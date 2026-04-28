@@ -1,18 +1,45 @@
 // App-wide colour palette & shared styles
+const lightColors = {
+  primary: '#3B82F6',
+  secondary: '#8B5CF6',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F1F5F9',
+  border: '#E2E8F0',
+  text: '#0F172A',
+  textMuted: '#64748B',
+  icon: '#475569',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  star: '#FBBF24',
+  input: '#F1F5F9',
+  overlay: 'rgba(15, 23, 42, 0.08)',
+} as const;
+
+const darkColors = {
+  primary: '#60A5FA',
+  secondary: '#A78BFA',
+  background: '#0F172A',
+  surface: '#111827',
+  surfaceAlt: '#1E293B',
+  border: '#334155',
+  text: '#F8FAFC',
+  textMuted: '#CBD5E1',
+  icon: '#CBD5E1',
+  success: '#34D399',
+  warning: '#FBBF24',
+  error: '#F87171',
+  star: '#FBBF24',
+  input: '#1E293B',
+  overlay: 'rgba(15, 23, 42, 0.35)',
+} as const;
+
 export const Colors = {
-  primary:    '#C0392B',   // Avurudu Crimson Red
-  secondary:  '#E67E22',   // Avurudu Deep Orange
-  background: '#120A08',   // Deep warm dark background
-  surface:    '#1F110D',   // Warm surface / card
-  surfaceAlt: '#2A1813',   // Slightly lighter warm surface
-  border:     '#3F251E',   // Warm border
-  text:       '#FFFFFE',   // Primary text
-  textMuted:  '#D4C1BC',   // Muted warm text
-  success:    '#27AE60',   // Avurudu Auspicious Green
-  warning:    '#F39C12',   // Avurudu Golden Yellow
-  error:      '#C0392B',   // Crimson Red
-  star:       '#F39C12',   // Avurudu Golden Yellow
-};
+  ...lightColors,
+  light: lightColors,
+  dark: darkColors,
+} as const;
 
 export const FontSizes = {
   xs:   11,
@@ -35,8 +62,8 @@ export const Spacing = {
 
 export const Radius = {
   sm: 8,
-  md: 14,
-  lg: 20,
-  xl: 30,
+  md: 16,
+  lg: 22,
+  xl: 32,
   full: 999,
 };

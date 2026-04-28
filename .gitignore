@@ -45,4 +45,6 @@ mobile-app/*.pem
 mobile-app/ios/
 mobile-app/android/
 
+# for copilot
 prompt.md
+.github

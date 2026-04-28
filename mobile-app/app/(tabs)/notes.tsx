@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, RefreshControl, Dimensions,
+  TextInput, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -16,25 +16,42 @@ import {
   saveNoteToCollections,
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
-
-const { width } = Dimensions.get('window');
+import { SkeletonBlock } from '../../components/ui/skeleton-block';
 
 // Premium Dark Theme Constants
 const C = {
-  bg: '#0A0705',
-  surface: '#130F0C',
-  surfaceAlt: '#1A1410',
-  border: '#2A1F18',
-  primary: '#C8392B',
-  primaryLight: '#E8503F',
-  accent: '#F5A623',
-  text: '#F5EDE8',
-  textMuted: '#8A7060',
-  textDim: '#5A4030',
-  placeholder: '#4A3020',
-  inputBg: '#160E0A',
-  star: '#F5A623',
+  bg: '#F8FAFC',
+  surface: '#F8FAFC',
+  surfaceAlt: '#F1F5F9',
+  border: '#E2E8F0',
+  primary: '#3B82F6',
+  primaryLight: '#60A5FA',
+  accent: '#8B5CF6',
+  text: '#0F172A',
+  textMuted: '#64748B',
+  textDim: '#94A3B8',
+  placeholder: '#94A3B8',
+  inputBg: '#F1F5F9',
+  star: '#FBBF24',
 };
+
+function NotesSkeletonList() {
+  return (
+    <View style={s.listContent}>
+      {[0, 1, 2, 3].map((idx) => (
+        <View key={idx} style={s.skeletonCard}>
+          <SkeletonBlock width={48} height={48} borderRadius={12} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBlock width="70%" height={14} borderRadius={8} />
+            <SkeletonBlock width="54%" height={11} borderRadius={8} style={{ marginTop: 8 }} />
+            <SkeletonBlock width={86} height={10} borderRadius={8} style={{ marginTop: 10 }} />
+          </View>
+          <SkeletonBlock width={38} height={38} borderRadius={12} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 const getNoteSubjectLabel = (item: any) => item.subject?.name || item.subjectText || 'No Subject';
 
@@ -239,9 +256,7 @@ export default function NotesScreen() {
       </View>
 
       {loading && notes.length === 0 ? (
-        <View style={s.loaderContainer}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
+        <NotesSkeletonList />
       ) : (
         <FlatList
           data={notes}
@@ -260,7 +275,19 @@ export default function NotesScreen() {
             </View>
           }
           ListFooterComponent={
-            hasMore ? <ActivityIndicator color={C.primary} style={{ padding: 20 }} /> : <View style={{ height: 20 }} />
+            hasMore
+              ? (
+                <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+                  <View style={s.skeletonFooter}>
+                    <SkeletonBlock width={44} height={44} borderRadius={12} />
+                    <View style={{ flex: 1 }}>
+                      <SkeletonBlock width="62%" height={13} borderRadius={8} />
+                      <SkeletonBlock width="48%" height={10} borderRadius={8} style={{ marginTop: 8 }} />
+                    </View>
+                  </View>
+                </View>
+              )
+              : <View style={{ height: 20 }} />
           }
         />
       )}
@@ -304,7 +331,7 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, color: C.text, fontSize: 15, fontWeight: '500' },
 
   // List & Cards
-  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
   card: {
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -339,4 +366,25 @@ const s = StyleSheet.create({
   // Empty State
   emptyWrap: { alignItems: 'center', marginTop: 100 },
   emptyText: { textAlign: 'center', color: C.textDim, marginTop: 15, fontSize: 15, fontWeight: '500', paddingHorizontal: 40 },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 12,
+  },
+  skeletonFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    backgroundColor: C.surface,
+    padding: 12,
+    gap: 12,
+  },
 });

@@ -52,7 +52,7 @@ export default function SubjectsScreen() {
             keyExtractor={i => i._id}
             renderItem={renderItem}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
-            contentContainerStyle={{ padding: Spacing.md, paddingTop: 4 }}
+            contentContainerStyle={{ padding: Spacing.md, paddingTop: 4, paddingBottom: 120 }}
             ListEmptyComponent={<Text style={styles.empty}>No subjects yet. Add the first one!</Text>}
           />
       }

@@ -28,6 +28,7 @@ import {
 import { useAppDialog } from '../../hooks/use-app-dialog';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+import { SkeletonBlock } from '../../components/ui/skeleton-block';
 
 const MAX_REQUEST_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_REQUEST_FILE_SIZE_MB = 15;
@@ -114,12 +115,10 @@ export default function RequestDetailScreen() {
     ? requestItem.closedReason.charAt(0).toUpperCase() + requestItem.closedReason.slice(1)
     : 'Closed';
   const statusTone = requestItem?.status === 'open'
-    ? { backgroundColor: Colors.success + '20', color: Colors.success }
+    ? { backgroundColor: Colors.primary + '16', color: '#1D4ED8', borderColor: Colors.primary + '40' }
     : requestItem?.status === 'fulfilled'
-      ? { backgroundColor: Colors.success + '20', color: Colors.success }
-      : requestItem?.closedReason === 'deleted'
-        ? { backgroundColor: Colors.error + '20', color: Colors.error }
-        : { backgroundColor: Colors.warning + '20', color: Colors.warning };
+      ? { backgroundColor: '#DBEAFE', color: '#1E40AF', borderColor: '#93C5FD' }
+      : { backgroundColor: '#E2E8F0', color: '#475569', borderColor: '#CBD5E1' };
 
   useEffect(() => {
     let mounted = true;
@@ -480,8 +479,19 @@ export default function RequestDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <SkeletonBlock width={24} height={24} borderRadius={12} />
+          <SkeletonBlock width={150} height={18} borderRadius={8} style={{ marginLeft: Spacing.sm }} />
+        </View>
+        <View style={styles.content}>
+          <View style={styles.card}>
+            <SkeletonBlock width="72%" height={22} borderRadius={10} />
+            <SkeletonBlock width="95%" height={14} borderRadius={8} style={{ marginTop: Spacing.md }} />
+            <SkeletonBlock width="86%" height={14} borderRadius={8} style={{ marginTop: 8 }} />
+            <SkeletonBlock width="42%" height={24} borderRadius={Radius.full} style={{ marginTop: Spacing.md }} />
+          </View>
+        </View>
       </View>
     );
   }
@@ -499,6 +509,12 @@ export default function RequestDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <View pointerEvents="none" style={styles.blurLayer}>
+        <View style={[styles.blurOrb, styles.blurOrbTop]} />
+        <View style={[styles.blurOrb, styles.blurOrbMid]} />
+        <View style={[styles.blurOrb, styles.blurOrbBottom]} />
+      </View>
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: Spacing.sm }}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -511,7 +527,10 @@ export default function RequestDetailScreen() {
           <Text style={styles.title}>{requestItem.title}</Text>
           <Text style={styles.desc}>{requestItem.description}</Text>
           <Text style={styles.subjectText}>{requestSubjectLabel}</Text>
-          <View style={[styles.statusBox, { backgroundColor: statusTone.backgroundColor }]}>
+          <View style={[styles.statusBox, {
+            backgroundColor: statusTone.backgroundColor,
+            borderColor: statusTone.borderColor,
+          }]}>
             <Text style={[styles.statusText, { color: statusTone.color }]}>
               Status: {requestItem.status === 'closed' ? `closed (${closedReasonLabel.toLowerCase()})` : requestItem.status}
             </Text>
@@ -553,7 +572,7 @@ export default function RequestDetailScreen() {
                 onPress={openFulfillment}
                 disabled={openingFulfillment}
               >
-                <Ionicons name="open-outline" size={18} color={Colors.text} />
+                <Ionicons name="open-outline" size={18} color={Colors.surface} />
                 <Text style={styles.openFileText}>{openingFulfillment ? 'Opening...' : fulfillmentNoteId ? 'Open note' : 'Open attachment'}</Text>
               </TouchableOpacity>
             )}
@@ -565,13 +584,13 @@ export default function RequestDetailScreen() {
                 disabled={saveBusy}
               >
                 {saveBusy ? (
-                  <ActivityIndicator size="small" color={Colors.text} />
+                  <ActivityIndicator size="small" color={Colors.primary} />
                 ) : (
                   <>
                     <Ionicons
                       name={isFulfillmentSaved ? 'bookmark' : 'bookmark-outline'}
                       size={18}
-                      color={Colors.text}
+                      color={Colors.primary}
                     />
                     <Text style={styles.saveNoteText}>{isFulfillmentSaved ? 'Saved to Collections' : 'Save to Collections'}</Text>
                   </>
@@ -590,7 +609,7 @@ export default function RequestDetailScreen() {
                 disabled={processing}
               >
                 {processing
-                  ? <ActivityIndicator size="small" color={Colors.text} />
+                  ? <ActivityIndicator size="small" color={Colors.surface} />
                   : <Text style={styles.visibilityActionText}>{isFulfillmentPublic ? 'Make Private' : 'Make Public'}</Text>}
               </TouchableOpacity>
             )}
@@ -604,7 +623,7 @@ export default function RequestDetailScreen() {
               onPress={() => router.push(`/request/${id}/edit`)}
               disabled={processing}
             >
-              <Ionicons name="create-outline" size={16} color={Colors.text} />
+              <Ionicons name="create-outline" size={16} color={Colors.surface} />
               <Text style={styles.manageButtonText}>Edit</Text>
             </TouchableOpacity>
 
@@ -614,8 +633,8 @@ export default function RequestDetailScreen() {
               disabled={processing}
             >
               {processing && pendingAction === 'delete'
-                ? <ActivityIndicator size="small" color={Colors.text} />
-                : <Ionicons name="trash-outline" size={16} color={Colors.text} />}
+                ? <ActivityIndicator size="small" color={Colors.surface} />
+                : <Ionicons name="trash-outline" size={16} color={Colors.surface} />}
               <Text style={styles.manageButtonText}>{processing && pendingAction === 'delete' ? 'Deleting...' : 'Delete'}</Text>
             </TouchableOpacity>
 
@@ -625,8 +644,8 @@ export default function RequestDetailScreen() {
               disabled={processing}
             >
               {processing && pendingAction === 'close'
-                ? <ActivityIndicator size="small" color={Colors.text} />
-                : <Ionicons name="close-circle-outline" size={16} color={Colors.text} />}
+                ? <ActivityIndicator size="small" color={Colors.surface} />
+                : <Ionicons name="close-circle-outline" size={16} color={Colors.surface} />}
               <Text style={styles.manageButtonText}>{processing && pendingAction === 'close' ? 'Closing...' : 'Close'}</Text>
             </TouchableOpacity>
           </View>
@@ -639,7 +658,7 @@ export default function RequestDetailScreen() {
             disabled={fulfillSubmitting || !canFulfill}
           >
             {fulfillSubmitting
-              ? <ActivityIndicator size="small" color={Colors.text} />
+              ? <ActivityIndicator size="small" color={Colors.surface} />
               : <Text style={styles.buttonText}>Fulfill Request</Text>}
           </TouchableOpacity>
         )}
@@ -669,7 +688,7 @@ export default function RequestDetailScreen() {
             disabled={reopening}
           >
             {reopening
-              ? <ActivityIndicator size="small" color={Colors.text} />
+              ? <ActivityIndicator size="small" color={Colors.surface} />
               : <Text style={styles.reopenButtonText}>Reopen Request</Text>}
           </TouchableOpacity>
         )}
@@ -681,7 +700,7 @@ export default function RequestDetailScreen() {
             disabled={processing}
           >
             {processing && pendingAction === 'delete'
-              ? <ActivityIndicator size="small" color={Colors.text} />
+              ? <ActivityIndicator size="small" color={Colors.surface} />
               : <Text style={styles.fulfilledDeleteButtonText}>Delete Request</Text>}
           </TouchableOpacity>
         )}
@@ -717,7 +736,7 @@ export default function RequestDetailScreen() {
                 disabled={processing}
               >
                 {processing
-                  ? <ActivityIndicator size="small" color={Colors.text} />
+                  ? <ActivityIndicator size="small" color={Colors.surface} />
                   : <Text style={styles.modalDeleteText}>{pendingAction === 'close' ? 'Close' : 'Delete'}</Text>}
               </TouchableOpacity>
             </View>
@@ -778,7 +797,7 @@ export default function RequestDetailScreen() {
                 disabled={fulfillSubmitting}
               >
                 {fulfillSubmitting
-                  ? <ActivityIndicator size="small" color={Colors.text} />
+                  ? <ActivityIndicator size="small" color={Colors.surface} />
                   : <Text style={styles.modalDeleteText}>Submit</Text>}
               </TouchableOpacity>
             </View>
@@ -793,37 +812,66 @@ export default function RequestDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  blurLayer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  blurOrb: {
+    position: 'absolute',
+    borderRadius: Radius.full,
+  },
+  blurOrbTop: {
+    width: 240,
+    height: 240,
+    top: -90,
+    right: -60,
+    backgroundColor: 'rgba(59,130,246,0.13)',
+  },
+  blurOrbMid: {
+    width: 180,
+    height: 180,
+    top: 180,
+    left: -70,
+    backgroundColor: 'rgba(96,165,250,0.12)',
+  },
+  blurOrbBottom: {
+    width: 220,
+    height: 220,
+    bottom: -100,
+    right: -80,
+    backgroundColor: 'rgba(29,78,216,0.10)',
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
   pageTitle: { fontSize: FontSizes.xl, fontWeight: '700', color: Colors.text },
   content: { padding: Spacing.md },
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
+  card: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.primary + '1F' },
   title: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
   desc: { fontSize: FontSizes.md, color: Colors.textMuted, lineHeight: 22, marginBottom: Spacing.lg },
   subjectText: { color: Colors.textMuted, fontSize: FontSizes.sm, fontWeight: '600', marginBottom: Spacing.sm },
-  statusBox: { padding: Spacing.sm, borderRadius: Radius.sm, alignSelf: 'flex-start' },
+  statusBox: { padding: Spacing.sm, borderRadius: Radius.sm, alignSelf: 'flex-start', borderWidth: 1 },
   statusText: { fontWeight: '700', fontSize: FontSizes.sm },
-  fulfillmentCard: { marginTop: Spacing.md, backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
+  fulfillmentCard: { marginTop: Spacing.md, backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.primary + '1F' },
   fulfillmentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800' },
   visibilityBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
-  publicBadge: { backgroundColor: Colors.success + '22', borderWidth: 1, borderColor: Colors.success + '66' },
-  privateBadge: { backgroundColor: Colors.secondary + '22', borderWidth: 1, borderColor: Colors.secondary + '66' },
+  publicBadge: { backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary + '55' },
+  privateBadge: { backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#93C5FD' },
   visibilityText: { fontSize: FontSizes.xs, fontWeight: '700' },
-  publicBadgeText: { color: Colors.success },
-  privateBadgeText: { color: Colors.secondary },
+  publicBadgeText: { color: '#1D4ED8' },
+  privateBadgeText: { color: '#1E40AF' },
   fulfillmentTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
   fulfillmentDescription: { color: Colors.textMuted, fontSize: FontSizes.sm, lineHeight: 20, marginTop: 6 },
   fulfillmentMetaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm, marginTop: 10 },
   fulfillmentMetaText: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: 4 },
   openFileButton: { marginTop: Spacing.md, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  openFileText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
-  saveNoteButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.secondary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  saveNoteText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
+  openFileText: { color: Colors.surface, fontSize: FontSizes.sm, fontWeight: '700' },
+  saveNoteButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: Colors.primary + '38', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  saveNoteText: { color: Colors.primary, fontSize: FontSizes.sm, fontWeight: '700' },
   visibilityActionButton: { marginTop: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  makePublicButton: { backgroundColor: Colors.success },
-  makePrivateButton: { backgroundColor: Colors.secondary },
-  visibilityActionText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
+  makePublicButton: { backgroundColor: '#2563EB' },
+  makePrivateButton: { backgroundColor: '#1D4ED8' },
+  visibilityActionText: { color: Colors.surface, fontSize: FontSizes.sm, fontWeight: '700' },
   manageRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   manageButton: {
     flex: 1,
@@ -834,32 +882,32 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
   },
-  editButton: { backgroundColor: Colors.secondary },
-  closeButton: { backgroundColor: Colors.warning },
-  deleteButton: { backgroundColor: Colors.error },
-  manageButtonText: { color: Colors.text, fontSize: FontSizes.sm, fontWeight: '700' },
+  editButton: { backgroundColor: Colors.primary },
+  closeButton: { backgroundColor: '#1D4ED8' },
+  deleteButton: { backgroundColor: '#2563EB' },
+  manageButtonText: { color: Colors.surface, fontSize: FontSizes.sm, fontWeight: '700' },
   button: { backgroundColor: Colors.primary, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.lg },
-  buttonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
+  buttonText: { color: Colors.surface, fontSize: FontSizes.md, fontWeight: '700' },
   helperText: { color: Colors.textMuted, fontSize: FontSizes.xs, marginTop: Spacing.sm, textAlign: 'center' },
   reopenButton: {
     marginTop: Spacing.md,
-    backgroundColor: Colors.success,
+    backgroundColor: '#2563EB',
     padding: Spacing.md,
     borderRadius: Radius.md,
     alignItems: 'center',
   },
-  reopenButtonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
+  reopenButtonText: { color: Colors.surface, fontSize: FontSizes.md, fontWeight: '700' },
   fulfilledDeleteButton: {
     marginTop: Spacing.md,
-    backgroundColor: Colors.error,
+    backgroundColor: '#1D4ED8',
     padding: Spacing.md,
     borderRadius: Radius.md,
     alignItems: 'center',
   },
-  fulfilledDeleteButtonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
+  fulfilledDeleteButtonText: { color: Colors.surface, fontSize: FontSizes.md, fontWeight: '700' },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     padding: Spacing.lg,
   },
@@ -899,7 +947,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   modalDeleteButton: {
-    backgroundColor: Colors.error,
+    backgroundColor: Colors.primary,
   },
   modalCancelText: {
     color: Colors.text,
@@ -907,7 +955,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalDeleteText: {
-    color: Colors.text,
+    color: Colors.surface,
     fontSize: FontSizes.sm,
     fontWeight: '700',
   },

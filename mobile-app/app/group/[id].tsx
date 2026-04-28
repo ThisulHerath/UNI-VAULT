@@ -10,19 +10,19 @@ import {
   Modal,
   Image,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import { io, Socket } from 'socket.io-client';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { groupService } from '../../services/dataServices';
-import {
-  getNoteSaveState,
-  getSavedStateMapForNotes,
-  removeNoteFromAllCollections,
-  saveNoteToCollections,
-} from '../../services/collectionLogic';
+import { getSavedStateMapForNotes } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
 import { API_ORIGIN } from '../../services/api';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
@@ -96,7 +96,8 @@ const formatRelativeTime = (date?: Date | string) => {
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user, token } = useAuth();
-  const { showDialog, dialogElement } = useAppDialog();
+  const { dialogElement } = useAppDialog();
+  const insets = useSafeAreaInsets();
 
   const [group, setGroup] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -121,8 +122,7 @@ export default function GroupDetailScreen() {
     fileMimeType?: string;
     name?: string;
   } | null>(null);
-  const [savingSharedNoteId, setSavingSharedNoteId] = useState<string | null>(null);
-  const [sharedNoteSavedState, setSharedNoteSavedState] = useState<Record<string, boolean>>({});
+  const [, setSharedNoteSavedState] = useState<Record<string, boolean>>({});
   const socketRef = useRef<Socket | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const shouldAutoScrollRef = useRef(false);
@@ -508,96 +508,6 @@ export default function GroupDetailScreen() {
   const cancelDeleteMessage = () => setDeleteConfirmation(null);
   const closeAttachmentPreview = () => setActiveAttachment(null);
 
-  const handleToggleSharedNoteSave = (note: any) => {
-    const noteId = note?._id || note?.id;
-    if (!noteId) {
-      Toast.show({ type: 'error', text1: 'Invalid note', text2: 'This note cannot be saved right now.' });
-      return;
-    }
-
-    if (!user?._id) {
-      showDialog('Sign In Required', 'Please sign in to save notes to your collections.', [
-        { label: 'Okay', role: 'default' },
-      ]);
-      return;
-    }
-
-    if (savingSharedNoteId) return;
-
-    const isSaved = !!sharedNoteSavedState[String(noteId)];
-
-    if (!isSaved) {
-      showDialog('Save Group Note', 'Save this shared note to your collections?', [
-        { label: 'Not Now', role: 'cancel' },
-        {
-          label: 'Save',
-          onPress: async () => {
-            try {
-              setSavingSharedNoteId(String(noteId));
-              const result = await saveNoteToCollections(String(noteId));
-              setSharedNoteSavedState((prev) => ({ ...prev, [String(noteId)]: true }));
-              Toast.show({
-                type: 'success',
-                text1: 'Saved to Collection',
-                text2: result.createdCollection
-                  ? `Created ${result.collectionName} and saved this note.`
-                  : `Saved to ${result.collectionName}.`,
-              });
-            } catch (error: any) {
-              Toast.show({
-                type: 'error',
-                text1: 'Save Failed',
-                text2: error?.message || 'Unable to save this shared note.',
-              });
-            } finally {
-              setSavingSharedNoteId(null);
-            }
-          },
-        },
-      ]);
-      return;
-    }
-
-    showDialog('Remove Saved Note', 'Remove this shared note from your saved collections?', [
-      { label: 'Cancel', role: 'cancel' },
-      {
-        label: 'Remove',
-        role: 'destructive',
-        onPress: async () => {
-          try {
-            setSavingSharedNoteId(String(noteId));
-            const state = await getNoteSaveState(String(noteId));
-            if (!state.collectionCount) {
-              setSharedNoteSavedState((prev) => ({ ...prev, [String(noteId)]: false }));
-              Toast.show({
-                type: 'error',
-                text1: 'Already Removed',
-                text2: 'This note is not in your collections anymore.',
-              });
-              return;
-            }
-
-            const removedCount = await removeNoteFromAllCollections(String(noteId));
-            setSharedNoteSavedState((prev) => ({ ...prev, [String(noteId)]: false }));
-            Toast.show({
-              type: 'success',
-              text1: 'Removed from Collections',
-              text2: `Removed from ${removedCount} collection${removedCount === 1 ? '' : 's'}.`,
-            });
-          } catch (error: any) {
-            Toast.show({
-              type: 'error',
-              text1: 'Remove Failed',
-              text2: error?.message || 'Unable to remove this shared note.',
-            });
-          } finally {
-            setSavingSharedNoteId(null);
-          }
-        },
-      },
-    ]);
-  };
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -905,7 +815,11 @@ export default function GroupDetailScreen() {
           )}
         </ScrollView>
       ) : isMember ? (
-        <View style={styles.chatSection}>
+        <KeyboardAvoidingView
+          style={styles.chatSection}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
           <View style={[styles.card, styles.chatCard, styles.chatContentCard]}>
             <Text style={styles.sectionTitle}>Group Chat</Text>
 
@@ -914,6 +828,7 @@ export default function GroupDetailScreen() {
               style={styles.chatMessagesWrap}
               contentContainerStyle={styles.chatMessagesContainer}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               onContentSizeChange={() => {
                 if (!shouldAutoScrollRef.current) return;
                 chatScrollRef.current?.scrollToEnd({ animated: true });
@@ -1043,10 +958,19 @@ export default function GroupDetailScreen() {
               ) : (
                 <Text style={styles.meta}>No messages yet.</Text>
               )}
+
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                <View style={styles.chatDismissArea} />
+              </TouchableWithoutFeedback>
             </ScrollView>
           </View>
 
-          <View style={styles.chatInputBar}>
+          <View
+            style={[
+              styles.chatInputBar,
+              { paddingBottom: Math.max(insets.bottom, Spacing.sm) },
+            ]}
+          >
             {pendingAttachment && (
               <View style={styles.attachmentPreviewRow}>
                 <View style={styles.attachmentPreviewInfo}>
@@ -1090,7 +1014,7 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       ) : null}
 
       <Modal visible={attachmentPickerVisible} transparent animationType="fade" onRequestClose={closeAttachmentPicker}>
@@ -1432,7 +1356,8 @@ const styles = StyleSheet.create({
   chatSection: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, marginTop: Spacing.sm },
   chatContentCard: { flex: 1, marginBottom: Spacing.sm },
   chatMessagesWrap: { flex: 1, marginBottom: Spacing.sm },
-  chatMessagesContainer: { paddingBottom: Spacing.sm },
+  chatMessagesContainer: { paddingBottom: Spacing.sm, flexGrow: 1 },
+  chatDismissArea: { flexGrow: 1, minHeight: Spacing.xl },
   chatInputBar: {
     flexDirection: 'column',
     alignItems: 'stretch',
@@ -1440,6 +1365,8 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     paddingTop: Spacing.xs,
     backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
   attachmentPreviewRow: {
     flexDirection: 'row',
