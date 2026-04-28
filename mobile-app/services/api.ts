@@ -29,6 +29,26 @@ export const BASE_URL = `${API_ORIGIN}/api`;
 
 const LOCAL_BACKEND_HOSTS = new Set(['localhost', '127.0.0.1', '10.0.2.2']);
 
+const isPrivateIpv4Host = (hostname: string) => {
+  if (!hostname) return false;
+  const parts = hostname.split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  // 10.0.0.0/8
+  if (parts[0] === 10) return true;
+  // 172.16.0.0 - 172.31.255.255
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  // 192.168.0.0/16
+  if (parts[0] === 192 && parts[1] === 168) return true;
+
+  return false;
+};
+
+const shouldRewriteToApiOrigin = (hostname: string) =>
+  LOCAL_BACKEND_HOSTS.has(hostname) || isPrivateIpv4Host(hostname);
+
 export const normalizeApiAssetUrl = (url?: string | null): string | null => {
   if (!url || typeof url !== 'string') return null;
 
@@ -41,7 +61,7 @@ export const normalizeApiAssetUrl = (url?: string | null): string | null => {
 
   try {
     const parsed = new URL(trimmed);
-    if (LOCAL_BACKEND_HOSTS.has(parsed.hostname)) {
+    if (shouldRewriteToApiOrigin(parsed.hostname)) {
       return `${API_ORIGIN}${parsed.pathname}${parsed.search}${parsed.hash}`;
     }
     return trimmed;

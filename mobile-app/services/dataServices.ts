@@ -186,6 +186,22 @@ export const groupService = {
     });
     return res.data;
   },
+  updateGroupProfileImage: async (id: string, file: { uri: string; type: string; name: string }) => {
+    const formData = new FormData();
+    formData.append('coverImage', file as any);
+    const res = await api.put(`/groups/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+  deleteGroupProfileImage: async (id: string) => {
+    const formData = new FormData();
+    formData.append('removeCoverImage', 'true');
+    const res = await api.put(`/groups/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
   deleteGroup: async (id: string) => {
     const res = await api.delete(`/groups/${id}`);
     return res.data;

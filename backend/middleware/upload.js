@@ -7,7 +7,7 @@ const {
 } = require('../utils/noteFiles');
 
 // ─── Create upload directories if they don't exist ────────────────────────────
-const uploadDirs = ['uploads/avatars', 'uploads/covers'];
+const uploadDirs = ['uploads/avatars'];
 uploadDirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -37,18 +37,8 @@ const avatarStorage = multer.diskStorage({
   },
 });
 
-// ─── Study group cover image uploads ───────────────────────────────────────────
-const coverStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/covers');
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const groupId = req.params?.id || 'new';
-    const ext = path.extname(file.originalname);
-    cb(null, `${groupId}-${timestamp}${ext}`);
-  },
-});
+// ─── Study group cover image uploads (stored in GridFS) ──────────────────────
+const coverStorage = multer.memoryStorage();
 
 // ─── File filter: allowed types ────────────────────────────────────────────────
 const fileFilter = {

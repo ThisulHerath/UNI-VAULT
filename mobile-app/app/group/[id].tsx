@@ -18,6 +18,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { io, Socket } from 'socket.io-client';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -122,16 +123,24 @@ export default function GroupDetailScreen() {
     fileMimeType?: string;
     name?: string;
   } | null>(null);
+  const [draftCoverImage, setDraftCoverImage] = useState<{ uri: string } | null>(null);
   const [, setSharedNoteSavedState] = useState<Record<string, boolean>>({});
   const socketRef = useRef<Socket | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const shouldAutoScrollRef = useRef(false);
 
+  const currentUserId = user?._id;
   const requesterRole = group?.requesterRole || 'guest';
+  const requesterRoleFromPayload = requesterRole === 'owner' || requesterRole === 'admin' || requesterRole === 'member';
+  const derivedMembership = Array.isArray(group?.members) && !!currentUserId
+    ? group.members.some((member: any) => {
+        const memberId = member?.user?._id || member?.user;
+        return String(memberId) === String(currentUserId) && member?.role !== 'pending';
+      })
+    : false;
   const isOwner = requesterRole === 'owner';
   const isAdmin = requesterRole === 'admin' || isOwner;
-  const isMember = requesterRole === 'member' || isAdmin;
-  const currentUserId = user?._id;
+  const isMember = (requesterRole === 'member' || isAdmin) || (!requesterRoleFromPayload && derivedMembership);
 
   const load = useCallback(async () => {
     try {
@@ -277,6 +286,9 @@ export default function GroupDetailScreen() {
     setBusyAction(key);
     try {
       await task();
+    } catch (error: any) {
+      const message = error?.message || 'Something went wrong.';
+      Toast.show({ type: 'error', text1: 'Failed', text2: message });
     } finally {
       setBusyAction(null);
     }
@@ -431,6 +443,52 @@ export default function GroupDetailScreen() {
 
   const cancelLeave = () => setLeaveConfirmationVisible(false);
 
+  const pickGroupCoverImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      setDraftCoverImage({ uri: result.assets[0].uri });
+    }
+  };
+
+  const saveGroupCoverImage = async () => {
+    if (!group || !draftCoverImage) return;
+
+    await runAction('cover-update', async () => {
+      await groupService.updateGroupProfileImage(group._id, {
+        uri: draftCoverImage.uri,
+        type: 'image/jpeg',
+        name: 'group-profile.jpg',
+      });
+      setDraftCoverImage(null);
+      Toast.show({ type: 'success', text1: 'Updated', text2: 'Group profile picture saved.' });
+      await load();
+    });
+  };
+
+  const removeGroupCoverImage = async () => {
+    if (!group) return;
+
+    if (draftCoverImage) {
+      setDraftCoverImage(null);
+      if (!group.coverImage) return;
+    }
+
+    if (!group.coverImage) return;
+
+    await runAction('cover-remove', async () => {
+      await groupService.deleteGroupProfileImage(group._id);
+      setDraftCoverImage(null);
+      Toast.show({ type: 'success', text1: 'Removed', text2: 'Group profile picture deleted.' });
+      await load();
+    });
+  };
+
   const confirmLeave = async () => {
     if (!group) return;
 
@@ -484,7 +542,6 @@ export default function GroupDetailScreen() {
         console.error('Error sending message:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         Toast.show({ type: 'error', text1: 'Failed to send message', text2: message });
-        throw error;
       }
     });
   };
@@ -577,6 +634,64 @@ export default function GroupDetailScreen() {
           {activeSection === 'info' && (
             <>
               <View style={styles.card}>
+                <View style={styles.groupCoverHeader}>
+                  {draftCoverImage?.uri || group.coverImage ? (
+                    <Image source={{ uri: draftCoverImage?.uri || group.coverImage }} style={styles.groupCoverImage} />
+                  ) : (
+                    <View style={styles.groupCoverPlaceholder}>
+                      <Ionicons name="people" size={34} color={Colors.primary} />
+                    </View>
+                  )}
+                  {isAdmin && (
+                    <View style={styles.groupCoverActions}>
+                      <TouchableOpacity
+                        style={styles.groupCoverActionBtn}
+                        onPress={pickGroupCoverImage}
+                        disabled={busyAction === 'cover-update' || busyAction === 'cover-remove'}
+                      >
+                        <Ionicons name="image-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.groupCoverActionText}>
+                          {group.coverImage || draftCoverImage ? 'Change' : 'Add'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {!!(group.coverImage || draftCoverImage) && (
+                        <TouchableOpacity
+                          style={[styles.groupCoverActionBtn, styles.groupCoverDeleteBtn]}
+                          onPress={removeGroupCoverImage}
+                          disabled={busyAction === 'cover-update' || busyAction === 'cover-remove'}
+                        >
+                          {busyAction === 'cover-remove' ? (
+                            <ActivityIndicator size="small" color={Colors.error} />
+                          ) : (
+                            <>
+                              <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                              <Text style={[styles.groupCoverActionText, styles.groupCoverDeleteText]}>Delete</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+
+                      {draftCoverImage && (
+                        <TouchableOpacity
+                          style={[styles.groupCoverActionBtn, styles.groupCoverSaveBtn]}
+                          onPress={saveGroupCoverImage}
+                          disabled={busyAction === 'cover-update' || busyAction === 'cover-remove'}
+                        >
+                          {busyAction === 'cover-update' ? (
+                            <ActivityIndicator size="small" color={Colors.text} />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark" size={16} color={Colors.text} />
+                              <Text style={[styles.groupCoverActionText, styles.groupCoverSaveText]}>Save</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </View>
+
                 <Text style={styles.sectionTitle}>Group Overview</Text>
                 <Text style={styles.title}>{group.name}</Text>
                 <Text style={styles.desc}>{group.description || 'No description provided'}</Text>
@@ -794,11 +909,11 @@ export default function GroupDetailScreen() {
 
               {isMember && !isOwner && (
                 <TouchableOpacity
-                  style={[styles.secondaryButton, { marginTop: Spacing.sm }]}
+                  style={[styles.secondaryButton, styles.leaveButton, { marginTop: Spacing.sm }]}
                   onPress={handleLeave}
                   disabled={busyAction === 'leave'}
                 >
-                  {busyAction === 'leave' ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>Leave Group</Text>}
+                  {busyAction === 'leave' ? <ActivityIndicator color={Colors.error} /> : <Text style={styles.leaveButtonText}>Leave Group</Text>}
                 </TouchableOpacity>
               )}
 
@@ -1227,6 +1342,66 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   chatCard: { borderColor: Colors.primary + '55' },
+  groupCoverHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  groupCoverImage: {
+    width: 88,
+    height: 88,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  groupCoverPlaceholder: {
+    width: 88,
+    height: 88,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupCoverActions: {
+    flex: 1,
+    marginLeft: Spacing.md,
+    alignItems: 'flex-end',
+  },
+  groupCoverActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+    marginBottom: 8,
+  },
+  groupCoverActionText: {
+    color: Colors.primary,
+    fontSize: FontSizes.xs,
+    fontWeight: '700',
+  },
+  groupCoverDeleteBtn: {
+    borderColor: Colors.error + '45',
+    backgroundColor: Colors.error + '12',
+  },
+  groupCoverDeleteText: {
+    color: Colors.error,
+  },
+  groupCoverSaveBtn: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
+  },
+  groupCoverSaveText: {
+    color: Colors.text,
+  },
   title: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.xs },
   desc: { fontSize: FontSizes.md, color: Colors.textMuted, marginBottom: Spacing.md },
   meta: { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 4 },
@@ -1317,6 +1492,12 @@ const styles = StyleSheet.create({
   },
   button: { backgroundColor: Colors.primary, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.sm },
   secondaryButton: { backgroundColor: Colors.surfaceAlt, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.sm },
+  leaveButton: {
+    backgroundColor: Colors.error + '12',
+    borderWidth: 1.5,
+    borderColor: Colors.error + '70',
+  },
+  leaveButtonText: { color: Colors.error, fontSize: FontSizes.md, fontWeight: '700' },
   buttonText: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '700' },
   memberRow: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm, marginTop: Spacing.sm },
   memberInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },

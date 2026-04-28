@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image
+  ActivityIndicator, Image, Animated, Easing
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +18,7 @@ import {
   saveNoteToCollections,
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
+import { AmbientBackground } from '../../components/ambient-background';
 
 // Matching the theme colors from your previous screen
 const C = {
@@ -44,6 +46,41 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const waveAnim = useRef(new Animated.Value(0)).current;
+  const greetingFillAnim = useRef(new Animated.Value(0)).current;
+  const pageEntranceAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerWave = React.useCallback(() => {
+    waveAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(waveAnim, { toValue: 1, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(waveAnim, { toValue: -1, duration: 220, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(waveAnim, { toValue: 0.9, duration: 200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(waveAnim, { toValue: -0.6, duration: 180, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(waveAnim, { toValue: 0, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, [waveAnim]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      pageEntranceAnim.setValue(0);
+      Animated.timing(pageEntranceAnim, {
+        toValue: 1,
+        duration: 560,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+
+      greetingFillAnim.setValue(0);
+      Animated.timing(greetingFillAnim, {
+        toValue: 1,
+        duration: 520,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      triggerWave();
+    }, [greetingFillAnim, pageEntranceAnim, triggerWave])
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -211,12 +248,72 @@ export default function HomeScreen() {
 
   return (
     <View style={s.container}>
+      <AmbientBackground primary={C.primary} secondary={C.primaryLight} />
+      <Animated.View
+        style={[
+          s.pageAnimatedWrap,
+          {
+            opacity: pageEntranceAnim.interpolate({
+              inputRange: [0, 0.2, 1],
+              outputRange: [0, 0.6, 1],
+            }),
+            transform: [
+              {
+                translateY: pageEntranceAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-28, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
         
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</Text>
+            <View style={s.greetingRow}>
+              <Animated.Text
+                style={[
+                  s.greeting,
+                  {
+                    opacity: greetingFillAnim.interpolate({
+                      inputRange: [0, 0.25, 1],
+                      outputRange: [0, 0.6, 1],
+                    }),
+                    transform: [
+                      {
+                        translateX: greetingFillAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-120, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                Hello, {user?.name?.split(' ')[0]}
+              </Animated.Text>
+              <Animated.Text
+                style={[
+                  s.waveEmoji,
+                  {
+                    transform: [
+                      { perspective: 400 },
+                      {
+                        rotate: waveAnim.interpolate({
+                          inputRange: [-1, 0, 1],
+                          outputRange: ['-16deg', '0deg', '16deg'],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                {'\u{1F44B}'}
+              </Animated.Text>
+            </View>
             <Text style={s.sub}>{user?.batch ? `Batch: ${user.batch}` : 'Welcome back to UniVault'}</Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
@@ -278,6 +375,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+      </Animated.View>
       {dialogElement}
     </View>
   );
@@ -285,12 +383,15 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  pageAnimatedWrap: { flex: 1, zIndex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
   scrollContent: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 120 },
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center' },
   greeting: { fontSize: 24, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
+  waveEmoji: { fontSize: 24, marginLeft: 8 },
   sub: { fontSize: 13, color: C.textMuted, fontWeight: '500', marginTop: 2 },
   
   avatarOuter: { padding: 3, borderRadius: 25, borderWidth: 1, borderColor: C.border },
@@ -336,3 +437,4 @@ const s = StyleSheet.create({
   
   empty: { fontSize: 13, color: C.textDim, textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
 });
+

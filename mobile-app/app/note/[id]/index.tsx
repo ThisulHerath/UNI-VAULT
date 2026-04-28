@@ -150,6 +150,7 @@ export default function NoteDetailScreen() {
   const [myRating, setMyRating] = useState(0);
   const [myComment, setMyComment] = useState('');
   const [myReviewId, setMyReviewId] = useState<string | null>(null);
+  const [myOriginalComment, setMyOriginalComment] = useState('');
   const [ratingValidationMessage, setRatingValidationMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
@@ -344,10 +345,12 @@ export default function NoteDetailScreen() {
         setMyReviewId(mine._id);
         setMyRating(mine.rating);
         setMyComment(mine.comment || '');
+        setMyOriginalComment((mine.comment || '').trim());
       } else {
         setMyReviewId(null);
         setMyRating(0);
         setMyComment('');
+        setMyOriginalComment('');
       }
     } catch (e: any) {
       Toast.show({ type: 'error', text1: 'Error', text2: e.message || 'Failed to load reviews' });
@@ -499,7 +502,11 @@ export default function NoteDetailScreen() {
       return;
     }
     const trimmedComment = myComment.trim();
-    if (trimmedComment && trimmedComment.length < 10) {
+    const isEditing = !!myReviewId;
+    const originalTrimmedComment = myOriginalComment.trim();
+    const commentChanged = trimmedComment !== originalTrimmedComment;
+
+    if (trimmedComment && trimmedComment.length < 10 && (!isEditing || commentChanged)) {
       Toast.show({ type: 'error', text1: 'Comment Too Short', text2: 'Comments must be at least 10 characters when provided' });
       return;
     }
@@ -511,7 +518,9 @@ export default function NoteDetailScreen() {
     setSubmitting(true);
     try {
       const payload: { rating: number; comment?: string } = { rating: myRating };
-      if (trimmedComment) {
+      if (!isEditing) {
+        if (trimmedComment) payload.comment = trimmedComment;
+      } else if (commentChanged) {
         payload.comment = trimmedComment;
       }
 
@@ -582,6 +591,7 @@ export default function NoteDetailScreen() {
             setMyReviewId(null);
             setMyRating(0);
             setMyComment('');
+            setMyOriginalComment('');
             await refreshReviews();
           } catch (error: any) {
             Toast.show({ type: 'error', text1: 'Delete Failed', text2: error.message || 'Unable to delete review' });
@@ -595,6 +605,7 @@ export default function NoteDetailScreen() {
     setMyReviewId(review._id);
     setMyRating(review.rating);
     setMyComment(review.comment || '');
+    setMyOriginalComment((review.comment || '').trim());
   };
 
   const handleStarSelect = (star: number) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,16 @@ import {
   TextInput,
   ScrollView,
   Modal,
+  Animated,
+  Easing,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { groupService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
+import { AmbientBackground } from '../../components/ambient-background';
 
 export default function GroupsScreen() {
   const [publicGroups, setPublicGroups] = useState<any[]>([]);
@@ -26,6 +30,9 @@ export default function GroupsScreen() {
   const [code, setCode] = useState('');
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [joinModalVisible, setJoinModalVisible] = useState(false);
+  const titleAnim = React.useRef(new Animated.Value(0)).current;
+  const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
+  const headerActionsAnim = React.useRef(new Animated.Value(0)).current;
 
   const load = async () => {
     try {
@@ -57,6 +64,41 @@ export default function GroupsScreen() {
   useEffect(() => {
     load();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+      pageEntranceAnim.setValue(0);
+      Animated.timing(pageEntranceAnim, {
+        toValue: 1,
+        duration: 560,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      titleAnim.setValue(0);
+      Animated.timing(titleAnim, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      headerActionsAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(headerActionsAnim, {
+          toValue: 1,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerActionsAnim, {
+          toValue: 2,
+          duration: 160,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [headerActionsAnim, pageEntranceAnim, titleAnim])
+  );
 
   const joinByCode = async () => {
     if (!code.trim()) {
@@ -94,17 +136,23 @@ export default function GroupsScreen() {
   const visibleMyGroups = myGroups.filter(matchesSearch);
   const visiblePublicGroups = publicGroups.filter(matchesSearch);
 
+  const getCoverUri = (item: any) => {
+    if (!item?.coverImage) return null;
+    const seed = item?.updatedAt || item?.createdAt || item?._id || Date.now();
+    return `${item.coverImage}${item.coverImage.includes('?') ? '&' : '?'}v=${encodeURIComponent(String(seed))}`;
+  };
+
   const renderItem = (item: any) => (
     <TouchableOpacity key={item._id} style={styles.card} onPress={() => router.push(`/group/${item._id}`)}>
-      {item.coverImage ? (
-        <Image source={{ uri: item.coverImage }} style={styles.cover} />
-      ) : (
-        <View style={[styles.cover, styles.coverPlaceholder]}>
-          <Ionicons name="people" size={28} color={Colors.primary} />
-        </View>
-      )}
       <View style={styles.info}>
         <View style={styles.nameRow}>
+          {getCoverUri(item) ? (
+            <Image source={{ uri: getCoverUri(item) as string }} style={styles.inlineAvatar} />
+          ) : (
+            <View style={styles.inlineAvatarPlaceholder}>
+              <Ionicons name="people" size={14} color={Colors.primary} />
+            </View>
+          )}
           <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
           <View style={[styles.privacyBadge, { backgroundColor: item.privacy === 'private' ? Colors.error + '25' : Colors.success + '25' }]}>
             <Ionicons name={item.privacy === 'private' ? 'lock-closed' : 'earth'} size={10} color={item.privacy === 'private' ? Colors.error : Colors.success} />
@@ -131,15 +179,113 @@ export default function GroupsScreen() {
 
   return (
     <View style={styles.container}>
+      <AmbientBackground primary={Colors.primary} secondary={'#60A5FA'} />
+      <Animated.View
+        style={[
+          styles.pageAnimatedWrap,
+          {
+            opacity: pageEntranceAnim.interpolate({
+              inputRange: [0, 0.2, 1],
+              outputRange: [0, 0.6, 1],
+            }),
+            transform: [
+              {
+                translateY: pageEntranceAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-28, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>👥 Groups</Text>
+        <Animated.Text
+          style={[
+            styles.pageTitle,
+            {
+              opacity: titleAnim.interpolate({
+                inputRange: [0, 0.25, 1],
+                outputRange: [0, 0.65, 1],
+              }),
+              transform: [
+                {
+                  translateX: titleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-100, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {'\u{1F465}'} Groups
+        </Animated.Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setJoinModalVisible(true)}>
-            <Ionicons name="key-outline" size={18} color={Colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.fab} onPress={() => router.push('/group/create')}>
-            <Ionicons name="add" size={22} color={Colors.text} />
-          </TouchableOpacity>
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  translateX: headerActionsAnim.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: [26, 0, 0],
+                  }),
+                },
+                {
+                  scale: headerActionsAnim.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: [0.75, 1.08, 1],
+                  }),
+                },
+                {
+                  rotate: headerActionsAnim.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: ['-160deg', '14deg', '0deg'],
+                  }),
+                },
+              ],
+              opacity: headerActionsAnim.interpolate({
+                inputRange: [0, 1, 2],
+                outputRange: [0, 1, 1],
+              }),
+            }}
+          >
+            <TouchableOpacity style={styles.iconBtn} onPress={() => setJoinModalVisible(true)}>
+              <Ionicons name="key-outline" size={18} color={Colors.text} />
+            </TouchableOpacity>
+          </Animated.View>
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  translateX: headerActionsAnim.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: [34, 0, 0],
+                  }),
+                },
+                {
+                  scale: headerActionsAnim.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: [0.72, 1.12, 1],
+                  }),
+                },
+                {
+                  rotate: headerActionsAnim.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: ['-200deg', '18deg', '0deg'],
+                  }),
+                },
+              ],
+              opacity: headerActionsAnim.interpolate({
+                inputRange: [0, 1, 2],
+                outputRange: [0, 1, 1],
+              }),
+            }}
+          >
+            <TouchableOpacity style={styles.fab} onPress={() => router.push('/group/create')}>
+              <Ionicons name="add" size={22} color={Colors.text} />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
 
@@ -174,6 +320,7 @@ export default function GroupsScreen() {
           {renderSection('Public Groups', visiblePublicGroups, 'No public groups match your search.')}
         </ScrollView>
       )}
+      </Animated.View>
 
       <Modal visible={joinModalVisible} transparent animationType="fade" onRequestClose={() => setJoinModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -205,6 +352,7 @@ export default function GroupsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  pageAnimatedWrap: { flex: 1, zIndex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -274,18 +422,24 @@ const styles = StyleSheet.create({
   sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800' },
   sectionCount: { color: Colors.textMuted, fontSize: FontSizes.xs, fontWeight: '700' },
   card: {
-    flexDirection: 'row',
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.border,
-    overflow: 'hidden',
+    padding: Spacing.sm,
   },
-  cover: { width: 80, height: 80 },
-  coverPlaceholder: { backgroundColor: Colors.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
-  info: { flex: 1, padding: Spacing.sm, justifyContent: 'center' },
+  info: { justifyContent: 'center' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  inlineAvatar: { width: 24, height: 24, borderRadius: Radius.full, backgroundColor: Colors.surfaceAlt },
+  inlineAvatarPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   name: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text, flex: 1 },
   privacyBadge: { padding: 4, borderRadius: Radius.full },
   meta: { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
@@ -333,3 +487,4 @@ const styles = StyleSheet.create({
   modalCancelText: { color: Colors.primary, fontWeight: '800' },
   modalPrimaryText: { color: Colors.text, fontWeight: '800' },
 });
+

@@ -1,10 +1,14 @@
 const StudyGroup = require('../models/StudyGroup');
 const User = require('../models/User');
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const { setNoteFileUrls } = require('../utils/noteFiles');
+const {
+  buildAbsoluteGroupCoverUrl,
+  deleteGroupCoverFromGridFs,
+  getGroupCoverBucket,
+  uploadGroupCoverToGridFs,
+} = require('../utils/groupCoverFiles');
 const {
   buildAbsoluteGroupMessageFileUrl,
   deleteGroupMessageFileFromGridFs,
@@ -67,12 +71,28 @@ const normalizeGroupAccess = (body = {}) => {
   return { privacy, joinMode };
 };
 
-const setCoverImageFromRequest = (req, groupData) => {
-  if (!req.file) return;
+const normalizeBooleanFlag = (value) => value === true || value === 'true' || value === '1';
 
-  const coverUrl = `${req.protocol}://${req.get('host')}/uploads/covers/${req.file.filename}`;
-  groupData.coverImage = coverUrl;
-  groupData.coverPublicId = req.file.filename;
+const setGroupCoverImageUrl = (group, req) => {
+  if (!group || !group._id) return group;
+
+  const hasCover = !!group.coverFileId;
+  group.coverImage = hasCover ? buildAbsoluteGroupCoverUrl(req, toObjectIdString(group._id)) : null;
+  return group;
+};
+
+const setGroupCoverImageUrls = (groups, req) => {
+  if (!Array.isArray(groups)) return groups;
+  return groups.map((group) => setGroupCoverImageUrl(group, req));
+};
+
+const clearGroupCoverFields = (group) => {
+  group.coverFileId = null;
+  group.coverFileMimeType = null;
+  group.coverFileSize = null;
+  group.coverOriginalFileName = null;
+  group.coverImage = null;
+  group.coverPublicId = null;
 };
 
 const getCreatedGroupMessage = async (group, messageId) => {
@@ -86,12 +106,14 @@ const getCreatedGroupMessage = async (group, messageId) => {
 // ─── @route  POST /api/groups ─────────────────────────────────────────────────
 // ─── @access Private
 exports.createGroup = async (req, res, next) => {
+  let uploadedCoverFileId = null;
+
   try {
     const { name, description, subject, batch } = req.body;
     const { privacy, joinMode } = normalizeGroupAccess(req.body);
     const invitationCode = privacy === 'private'
       ? ((req.body.invitationCode || '').trim().toUpperCase() || await generateUniqueInvitationCode())
-      : null;
+      : undefined;
 
     if (invitationCode) {
       const codeExists = await StudyGroup.exists({ invitationCode });
@@ -107,24 +129,45 @@ exports.createGroup = async (req, res, next) => {
       batch: batch || null,
       privacy,
       joinMode,
-      invitationCode,
       createdBy: req.user._id,
       // Creator is automatically an admin member
       members: [{ user: req.user._id, role: 'admin' }],
     };
 
-    setCoverImageFromRequest(req, groupData);
+    if (invitationCode) {
+      groupData.invitationCode = invitationCode;
+    }
 
     const group = await StudyGroup.create(groupData);
+
+    if (req.file) {
+      const coverUpload = await uploadGroupCoverToGridFs(req.file, group._id);
+      uploadedCoverFileId = coverUpload.fileId;
+      group.coverFileId = coverUpload.fileId;
+      group.coverFileMimeType = coverUpload.fileMimeType;
+      group.coverFileSize = coverUpload.fileSize;
+      group.coverOriginalFileName = coverUpload.fileName;
+      group.coverImage = buildAbsoluteGroupCoverUrl(req, group._id.toString());
+      group.coverPublicId = null;
+      await group.save();
+    }
 
     // Add group to user's studyGroups array
     await req.user.updateOne({ $addToSet: { studyGroups: group._id } });
 
     await group.populate('createdBy', 'name avatar');
     await group.populate('subject', 'name code');
+    setGroupCoverImageUrl(group, req);
 
     res.status(201).json({ success: true, data: group });
   } catch (error) {
+    if (uploadedCoverFileId) {
+      try {
+        await deleteGroupCoverFromGridFs(uploadedCoverFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures; the main error should be surfaced.
+      }
+    }
     next(error);
   }
 };
@@ -156,6 +199,7 @@ exports.getGroups = async (req, res, next) => {
         .limit(limit),
       StudyGroup.countDocuments(filter),
     ]);
+    setGroupCoverImageUrls(groups, req);
 
     res.status(200).json({
       success: true,
@@ -186,6 +230,8 @@ exports.getMyGroups = async (req, res, next) => {
       .populate('createdBy', 'name avatar')
       .populate('subject', 'name code')
       .sort({ createdAt: -1 });
+
+    setGroupCoverImageUrls(groups, req);
 
     res.status(200).json({ success: true, count: groups.length, data: groups });
   } catch (error) {
@@ -228,6 +274,7 @@ exports.getGroupById = async (req, res, next) => {
     }
 
     const plainGroup = group.toObject();
+    setGroupCoverImageUrl(plainGroup, req);
     plainGroup.sharedNotes = setNoteFileUrls(plainGroup.sharedNotes, req);
     plainGroup.messages = setGroupMessageAttachmentUrls(plainGroup.messages, req, plainGroup._id);
 
@@ -244,6 +291,13 @@ exports.getGroupById = async (req, res, next) => {
       }
     }
 
+    // Keep response counters consistent with redacted join request data.
+    plainGroup.pendingRequestCount = requesterIsAdmin
+      ? (Array.isArray(plainGroup.joinRequests)
+        ? plainGroup.joinRequests.filter((request) => request.status === 'pending').length
+        : 0)
+      : 0;
+
     plainGroup.requesterRole = requesterIsAdmin
       ? (isOwner(group, requesterId) ? 'owner' : 'admin')
       : (requesterIsMember ? 'member' : 'guest');
@@ -257,6 +311,8 @@ exports.getGroupById = async (req, res, next) => {
 // ─── @route  PUT /api/groups/:id ─────────────────────────────────────────────
 // ─── @access Private (group admin only)
 exports.updateGroup = async (req, res, next) => {
+  let newCoverFileId = null;
+
   try {
     let group = await StudyGroup.findById(req.params.id);
     if (!group) {
@@ -281,7 +337,7 @@ exports.updateGroup = async (req, res, next) => {
       if (req.body.joinMode) {
         group.joinMode = accessInput.joinMode;
       }
-      group.invitationCode = null;
+      group.invitationCode = undefined;
     }
 
     if (group.privacy === 'private') {
@@ -303,21 +359,38 @@ exports.updateGroup = async (req, res, next) => {
       }
     }
 
+    const previousCoverFileId = group.coverFileId;
+    const removeCoverImage = normalizeBooleanFlag(req.body.removeCoverImage);
+
     if (req.file) {
-      // Delete old cover image from disk
-      if (group.coverPublicId) {
-        const oldFilePath = path.join('uploads/covers', group.coverPublicId);
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
-      }
-      setCoverImageFromRequest(req, group);
+      const coverUpload = await uploadGroupCoverToGridFs(req.file, group._id);
+      newCoverFileId = coverUpload.fileId;
+      group.coverFileId = coverUpload.fileId;
+      group.coverFileMimeType = coverUpload.fileMimeType;
+      group.coverFileSize = coverUpload.fileSize;
+      group.coverOriginalFileName = coverUpload.fileName;
+      group.coverImage = buildAbsoluteGroupCoverUrl(req, group._id.toString());
+      group.coverPublicId = null;
+    } else if (removeCoverImage) {
+      clearGroupCoverFields(group);
     }
 
     await group.save();
+    setGroupCoverImageUrl(group, req);
+
+    if ((req.file || removeCoverImage) && previousCoverFileId && String(previousCoverFileId) !== String(group.coverFileId || '')) {
+      await deleteGroupCoverFromGridFs(previousCoverFileId);
+    }
 
     res.status(200).json({ success: true, data: group });
   } catch (error) {
+    if (newCoverFileId) {
+      try {
+        await deleteGroupCoverFromGridFs(newCoverFileId);
+      } catch (cleanupError) {
+        // Ignore cleanup failures; the main error should be surfaced.
+      }
+    }
     next(error);
   }
 };
@@ -631,6 +704,49 @@ exports.manageGroupNote = async (req, res, next) => {
   }
 };
 
+// ─── @route  GET /api/groups/:id/cover ─────────────────────────────────────
+// ─── @access Public for public groups, member-only for private groups
+exports.getGroupCoverImage = async (req, res, next) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id).select(
+      'coverFileId coverFileMimeType coverOriginalFileName privacy members createdBy'
+    );
+
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (!group.coverFileId) {
+      return res.status(404).json({ success: false, message: 'Group image not found.' });
+    }
+
+    if (group.privacy === 'private' && !isActiveMember(group, req.user?._id)) {
+      return res.status(403).json({ success: false, message: 'You are not allowed to view this group image.' });
+    }
+
+    const fileId = group.coverFileId instanceof mongoose.Types.ObjectId
+      ? group.coverFileId
+      : new mongoose.Types.ObjectId(group.coverFileId);
+
+    const bucket = getGroupCoverBucket();
+    const files = await bucket.find({ _id: fileId }).toArray();
+    if (!files.length) {
+      return res.status(404).json({ success: false, message: 'Group image file not found.' });
+    }
+
+    const file = files[0];
+    res.setHeader('Content-Type', file.contentType || group.coverFileMimeType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${(group.coverOriginalFileName || file.filename || 'group-cover').replace(/"/g, '\\"')}"`
+    );
+
+    return bucket.openDownloadStream(fileId).on('error', next).pipe(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── @route  GET /api/groups/:id/messages ─────────────────────────────────────
 // ─── @access Private (group member)
 exports.getGroupMessages = async (req, res, next) => {
@@ -833,11 +949,11 @@ exports.deleteGroup = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Only the group owner can delete this group.' });
     }
 
-    // Delete cover image from disk
-    if (group.coverPublicId) {
-      const filePath = path.join('uploads/covers', group.coverPublicId);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    if (group.coverFileId) {
+      try {
+        await deleteGroupCoverFromGridFs(group.coverFileId);
+      } catch (cleanupError) {
+        // Ignore cover cleanup failures so delete flow can continue.
       }
     }
 

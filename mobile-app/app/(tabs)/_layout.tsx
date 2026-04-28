@@ -18,7 +18,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        sceneContainerStyle: {
+        sceneStyle: {
           paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20,
           backgroundColor: Colors.background,
         },

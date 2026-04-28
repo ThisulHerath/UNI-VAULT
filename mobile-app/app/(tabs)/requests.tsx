@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, Easing } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { requestService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 import { SkeletonBlock } from '../../components/ui/skeleton-block';
+import { AmbientBackground } from '../../components/ambient-background';
 
 const STATUS_COLOR: any = { open: Colors.primary, fulfilled: Colors.success, closed: Colors.textMuted };
 const FILTER_ACTIVE_STYLE: any = {
@@ -48,6 +50,45 @@ export default function RequestsScreen() {
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter]     = useState<'open' | 'fulfilled' | 'closed'>('open');
+  const titleAnim = React.useRef(new Animated.Value(0)).current;
+  const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
+  const fabAnim = React.useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      pageEntranceAnim.setValue(0);
+      Animated.timing(pageEntranceAnim, {
+        toValue: 1,
+        duration: 560,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+
+      titleAnim.setValue(0);
+      Animated.timing(titleAnim, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+
+      fabAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(fabAnim, {
+          toValue: 1,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabAnim, {
+          toValue: 2,
+          duration: 160,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [fabAnim, pageEntranceAnim, titleAnim])
+  );
 
   const load = useCallback(async (status = filter) => {
     try {
@@ -80,11 +121,80 @@ export default function RequestsScreen() {
 
   return (
     <View style={styles.container}>
+      <AmbientBackground primary={Colors.primary} secondary={'#60A5FA'} />
+      <Animated.View
+        style={[
+          styles.pageAnimatedWrap,
+          {
+            opacity: pageEntranceAnim.interpolate({
+              inputRange: [0, 0.2, 1],
+              outputRange: [0, 0.6, 1],
+            }),
+            transform: [
+              {
+                translateY: pageEntranceAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-28, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>Requests</Text>
-        <TouchableOpacity style={styles.fab} onPress={() => router.push('/request/create')}>
-          <Ionicons name="add" size={22} color={Colors.surface} />
-        </TouchableOpacity>
+        <Animated.Text
+          style={[
+            styles.pageTitle,
+            {
+              opacity: titleAnim.interpolate({
+                inputRange: [0, 0.25, 1],
+                outputRange: [0, 0.65, 1],
+              }),
+              transform: [
+                {
+                  translateX: titleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-100, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          Requests
+        </Animated.Text>
+        <Animated.View
+          style={{
+            transform: [
+              {
+                translateX: fabAnim.interpolate({
+                  inputRange: [0, 1, 2],
+                  outputRange: [28, 0, 0],
+                }),
+              },
+              {
+                scale: fabAnim.interpolate({
+                  inputRange: [0, 1, 2],
+                  outputRange: [0.75, 1.08, 1],
+                }),
+              },
+              {
+                rotate: fabAnim.interpolate({
+                  inputRange: [0, 1, 2],
+                  outputRange: ['-180deg', '18deg', '0deg'],
+                }),
+              },
+            ],
+            opacity: fabAnim.interpolate({
+              inputRange: [0, 1, 2],
+              outputRange: [0, 1, 1],
+            }),
+          }}
+        >
+          <TouchableOpacity style={styles.fab} onPress={() => router.push('/request/create')}>
+            <Ionicons name="add" size={22} color={Colors.surface} />
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* Filter tabs */}
@@ -114,15 +224,17 @@ export default function RequestsScreen() {
             ListEmptyComponent={<Text style={styles.empty}>No {filter} requests.</Text>}
           />
       }
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container:       { flex: 1, backgroundColor: Colors.background },
+  pageAnimatedWrap:{ flex: 1, zIndex: 1 },
   header:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: 56, paddingBottom: Spacing.sm },
   pageTitle:       { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
-  fab:             { width: 38, height: 38, borderRadius: Radius.full, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+  fab:             { width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
   filterRow:       { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.sm, gap: 8 },
   filterBtn:       { flex: 1, paddingVertical: Spacing.xs, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   filterText:      { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600' },
@@ -147,4 +259,3 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
 });
-

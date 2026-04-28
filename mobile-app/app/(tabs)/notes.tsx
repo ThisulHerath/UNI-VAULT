@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, RefreshControl,
+  TextInput, ActivityIndicator, RefreshControl, Animated, Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { noteService } from '../../services/dataServices';
@@ -17,6 +18,7 @@ import {
 } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
 import { SkeletonBlock } from '../../components/ui/skeleton-block';
+import { AmbientBackground } from '../../components/ambient-background';
 
 // Premium Dark Theme Constants
 const C = {
@@ -67,6 +69,45 @@ export default function NotesScreen() {
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const titleAnim = React.useRef(new Animated.Value(0)).current;
+  const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
+  const fabAnim = React.useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      pageEntranceAnim.setValue(0);
+      Animated.timing(pageEntranceAnim, {
+        toValue: 1,
+        duration: 560,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+
+      titleAnim.setValue(0);
+      Animated.timing(titleAnim, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+
+      fabAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(fabAnim, {
+          toValue: 1,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabAnim, {
+          toValue: 2,
+          duration: 160,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [fabAnim, pageEntranceAnim, titleAnim])
+  );
 
   const fetchNotes = useCallback(async (pageNum = 1, searchVal = search, reset = false) => {
     try {
@@ -222,14 +263,83 @@ export default function NotesScreen() {
 
   return (
     <View style={s.container}>
+      <AmbientBackground primary={C.primary} secondary={C.primaryLight} />
+      <Animated.View
+        style={[
+          s.pageAnimatedWrap,
+          {
+            opacity: pageEntranceAnim.interpolate({
+              inputRange: [0, 0.2, 1],
+              outputRange: [0, 0.6, 1],
+            }),
+            transform: [
+              {
+                translateY: pageEntranceAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-28, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.pageTitle}>Notes</Text>
-        <TouchableOpacity style={s.fab} onPress={() => router.push('/note/upload')} activeOpacity={0.8}>
-          <LinearGradient colors={[C.primaryLight, C.primary]} style={s.fabGrad}>
-            <Ionicons name="add" size={24} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
+        <Animated.Text
+          style={[
+            s.pageTitle,
+            {
+              opacity: titleAnim.interpolate({
+                inputRange: [0, 0.25, 1],
+                outputRange: [0, 0.65, 1],
+              }),
+              transform: [
+                {
+                  translateX: titleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-100, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          Notes
+        </Animated.Text>
+        <Animated.View
+          style={{
+            transform: [
+              {
+                translateX: fabAnim.interpolate({
+                  inputRange: [0, 1, 2],
+                  outputRange: [28, 0, 0],
+                }),
+              },
+              {
+                scale: fabAnim.interpolate({
+                  inputRange: [0, 1, 2],
+                  outputRange: [0.75, 1.08, 1],
+                }),
+              },
+              {
+                rotate: fabAnim.interpolate({
+                  inputRange: [0, 1, 2],
+                  outputRange: ['-180deg', '18deg', '0deg'],
+                }),
+              },
+            ],
+            opacity: fabAnim.interpolate({
+              inputRange: [0, 1, 2],
+              outputRange: [0, 1, 1],
+            }),
+          }}
+        >
+          <TouchableOpacity style={s.fab} onPress={() => router.push('/note/upload')} activeOpacity={0.8}>
+            <LinearGradient colors={[C.primaryLight, C.primary]} style={s.fabGrad}>
+              <Ionicons name="add" size={24} color="#fff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* Search Bar Upgrade */}
@@ -291,6 +401,7 @@ export default function NotesScreen() {
           }
         />
       )}
+      </Animated.View>
 
       {dialogElement}
     </View>
@@ -299,6 +410,7 @@ export default function NotesScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  pageAnimatedWrap: { flex: 1, zIndex: 1 },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   // Header

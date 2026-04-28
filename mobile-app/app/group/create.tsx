@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -65,8 +65,18 @@ export default function CreateGroupScreen() {
 
         <TouchableOpacity style={styles.filePicker} onPress={pickCover}>
           <Ionicons name="image-outline" size={22} color={Colors.primary} />
-          <Text style={styles.filePickerText}>{cover ? 'Cover image selected ✓' : 'Tap to add cover image'}</Text>
+          <Text style={styles.filePickerText}>{cover ? 'Profile picture selected' : 'Tap to add group profile picture'}</Text>
         </TouchableOpacity>
+
+        {cover && (
+          <View style={styles.coverPreviewWrap}>
+            <Image source={{ uri: cover.uri }} style={styles.coverPreview} />
+            <TouchableOpacity style={styles.removeCoverBtn} onPress={() => setCover(null)}>
+              <Ionicons name="trash-outline" size={16} color={Colors.error} />
+              <Text style={styles.removeCoverText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.switchRow}>
           <View>
@@ -117,6 +127,10 @@ const styles = StyleSheet.create({
   input:         { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, color: Colors.text, fontSize: FontSizes.md, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.sm },
   filePicker:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', gap: 10, marginBottom: Spacing.md },
   filePickerText:{ color: Colors.textMuted, fontSize: FontSizes.sm },
+  coverPreviewWrap: { alignItems: 'flex-start', marginBottom: Spacing.md },
+  coverPreview: { width: 90, height: 90, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.xs },
+  removeCoverBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.error + '15', borderWidth: 1, borderColor: Colors.error + '35', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5 },
+  removeCoverText: { color: Colors.error, fontSize: FontSizes.xs, fontWeight: '700' },
   switchRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
   switchLabel:   { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text },
   switchDesc:    { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },

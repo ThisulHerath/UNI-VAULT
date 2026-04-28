@@ -5,6 +5,7 @@ const {
   createGroup,
   getGroups,
   getMyGroups,
+  getGroupCoverImage,
   getGroupById,
   updateGroup,
   joinGroup,
@@ -25,6 +26,7 @@ const { uploadCover, uploadGroupMessageAttachment }  = require('../middleware/up
 
 router.get('/', getGroups);
 router.get('/mine', protect, getMyGroups);
+router.get('/:id/cover', optionalAuth, getGroupCoverImage);
 router.get('/:id', optionalAuth, getGroupById);
 
 router.post('/', protect, uploadCover.single('coverImage'), createGroup);

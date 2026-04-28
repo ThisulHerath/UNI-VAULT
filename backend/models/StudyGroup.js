@@ -145,7 +145,7 @@ const studyGroupSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       trim: true,
-      default: null,
+      default: undefined,
       uppercase: true,
       index: true,
     },
@@ -160,14 +160,32 @@ const studyGroupSchema = new mongoose.Schema(
       },
     ],
     messages: [groupMessageSchema],
-    // Avatar/banner image URL for the group
+    // Group profile image metadata (binary stored in GridFS)
+    coverFileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+    coverFileMimeType: {
+      type: String,
+      default: null,
+    },
+    coverFileSize: {
+      type: Number,
+      default: null,
+    },
+    coverOriginalFileName: {
+      type: String,
+      default: null,
+    },
+    // Public URL for clients to fetch group profile image
     coverImage: {
       type: String,
-      default: null, // Cloudinary secure_url
+      default: null,
     },
     coverPublicId: {
       type: String,
-      default: null, // Cloudinary public_id for deletion
+      default: null,
     },
     isActive: {
       type: Boolean,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, Modal, Dimensions,
+  ActivityIndicator, Image, Modal, Dimensions, Animated, Easing,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -51,6 +51,10 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
+  const bgOrbAnim = React.useRef(new Animated.Value(0)).current;
+  const heroOrbAnim = React.useRef(new Animated.Value(0)).current;
+  const arcAnim = React.useRef(new Animated.Value(0)).current;
 
   const load = async (showLoader = false) => {
     try {
@@ -74,6 +78,77 @@ export default function ProfileScreen() {
     React.useCallback(() => {
       if (loading) { load(true); } else { load(false); }
     }, [loading])
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      pageEntranceAnim.setValue(0);
+      Animated.timing(pageEntranceAnim, {
+        toValue: 1,
+        duration: 560,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      bgOrbAnim.setValue(0);
+      heroOrbAnim.setValue(0);
+      arcAnim.setValue(0);
+      const bgLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bgOrbAnim, {
+            toValue: 1,
+            duration: 9000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(bgOrbAnim, {
+            toValue: 0,
+            duration: 9000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      const heroLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(heroOrbAnim, {
+            toValue: 1,
+            duration: 7600,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(heroOrbAnim, {
+            toValue: 0,
+            duration: 7600,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      const arcLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(arcAnim, {
+            toValue: 1,
+            duration: 12000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(arcAnim, {
+            toValue: 0,
+            duration: 12000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      bgLoop.start();
+      heroLoop.start();
+      arcLoop.start();
+      return () => {
+        bgLoop.stop();
+        heroLoop.stop();
+        arcLoop.stop();
+      };
+    }, [arcAnim, bgOrbAnim, heroOrbAnim, pageEntranceAnim])
   );
 
   useFocusEffect(
@@ -194,20 +269,149 @@ export default function ProfileScreen() {
     status === 'open' ? C.primary : status === 'fulfilled' ? C.success : C.textMuted;
 
   return (
-    <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView
+      style={[
+        s.container,
+        {
+          opacity: pageEntranceAnim.interpolate({
+            inputRange: [0, 0.2, 1],
+            outputRange: [0, 0.6, 1],
+          }),
+          transform: [
+            {
+              translateY: pageEntranceAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-28, 0],
+              }),
+            },
+          ],
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       <View pointerEvents="none" style={s.blurLayer}>
-        <View style={[s.blurOrb, s.blurOrbTop]} />
-        <View style={[s.blurOrb, s.blurOrbBottom]} />
+        <Animated.View
+          style={[
+            s.blurOrb,
+            s.blurOrbTop,
+            {
+              transform: [
+                {
+                  translateX: bgOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-8, 14],
+                  }),
+                },
+                {
+                  translateY: bgOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 12],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            s.blurOrb,
+            s.blurOrbBottom,
+            {
+              transform: [
+                {
+                  translateX: bgOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [10, -10],
+                  }),
+                },
+                {
+                  translateY: bgOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-6, 10],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
       </View>
 
       {/* ── HERO HEADER ── */}
       <View style={s.heroWrap}>
         <View style={s.heroGrad} />
-        <View style={s.heroOrbLeft} />
-        <View style={s.heroOrbRight} />
+        <Animated.View
+          style={[
+            s.heroOrbLeft,
+            {
+              transform: [
+                {
+                  translateX: heroOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 14],
+                  }),
+                },
+                {
+                  translateY: heroOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -10],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            s.heroOrbRight,
+            {
+              transform: [
+                {
+                  translateX: heroOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -12],
+                  }),
+                },
+                {
+                  translateY: heroOrbAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 10],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
         {/* Decorative arcs */}
-        <View style={s.arcOuter} />
-        <View style={s.arcInner} />
+        <Animated.View
+          style={[
+            s.arcOuter,
+            {
+              transform: [
+                {
+                  rotate: arcAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['-2deg', '2deg'],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            s.arcInner,
+            {
+              transform: [
+                {
+                  rotate: arcAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['2deg', '-2deg'],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
 
         <View style={s.avatarRing}>
           <View style={s.avatarRingInner}>
@@ -401,7 +605,7 @@ export default function ProfileScreen() {
               <TouchableOpacity style={s.modalCancel} onPress={() => setShowSignOutModal(false)} disabled={signingOut}>
                 <Text style={s.modalCancelText}>Stay</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.modalConfirm, signingOut && { opacity: 0.6 }]} onPress={confirmLogout} disabled={signingOut}>
+              <TouchableOpacity style={[s.modalConfirm, signingOut && { opacity: 0.7 }]} onPress={confirmLogout} disabled={signingOut}>
                 {signingOut ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.modalConfirmText}>Sign Out</Text>}
               </TouchableOpacity>
             </View>
@@ -411,7 +615,7 @@ export default function ProfileScreen() {
 
       {dialogElement}
       <View style={{ height: 120 }} />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
@@ -490,7 +694,7 @@ const s = StyleSheet.create({
   menuLabel:      { fontSize: 14, color: C.text, fontWeight: '700' },
   menuSub:        { fontSize: 11, color: C.textMuted, marginTop: 1 },
 
-  signOutItem:    { flexDirection: 'row', alignItems: 'center', backgroundColor: C.error + '08', borderRadius: 12, borderWidth: 1, borderColor: C.error + '25', padding: 14, marginBottom: 8, marginHorizontal: 16 },
+  signOutItem:    { flexDirection: 'row', alignItems: 'center', backgroundColor: C.error + '10', borderRadius: 12, borderWidth: 1, borderColor: C.error + '25', padding: 14, marginBottom: 8, marginHorizontal: 16 },
   signOutIconBg:  { width: 38, height: 38, borderRadius: 10, backgroundColor: C.error + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
 
   // Modal
@@ -503,5 +707,5 @@ const s = StyleSheet.create({
   modalCancel:    { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: C.border, alignItems: 'center' },
   modalCancelText:{ color: C.textMuted, fontWeight: '700', fontSize: 14 },
   modalConfirm:   { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: C.error, alignItems: 'center' },
-  modalConfirmText:{ color: '#fff', fontWeight: '800', fontSize: 14 },
+  modalConfirmText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
 });
