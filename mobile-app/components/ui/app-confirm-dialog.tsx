@@ -71,6 +71,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
+    borderTopWidth: 4,
+    borderTopColor: Colors.primary,
     padding: Spacing.lg,
   },
   title: {

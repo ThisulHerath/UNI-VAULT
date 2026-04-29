@@ -283,15 +283,6 @@ function StudyBear({ activeField, emailLength }: StudyBearProps) {
   const irisX = gazeX.interpolate({ inputRange: [-1, 1], outputRange: [-2.8, 2.8] });
   const irisY = gazeY.interpolate({ inputRange: [0, 1], outputRange: [0, 2.0] });
 
-  // Cover paws — arms swing UP from resting position to cover eye area
-  // They start below the eye level and rise up to sit IN FRONT of the face
-  const leftPawY  = coverAnim.interpolate({ inputRange: [0, 1], outputRange: [32, -2] });
-  const rightPawY = coverAnim.interpolate({ inputRange: [0, 1], outputRange: [32, -2] });
-  const leftPawX  = coverAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 4] });
-  const rightPawX = coverAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -4] });
-  const leftPawRot  = coverAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-20deg'] });
-  const rightPawRot = coverAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '20deg'] });
-
   const pencilRot = pencilWiggle.interpolate({ inputRange: [-1, 1], outputRange: ['-8deg', '8deg'] });
   const writingLineWidth = notebookLineAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 36] });
 
@@ -373,51 +364,14 @@ function StudyBear({ activeField, emailLength }: StudyBearProps) {
         <View style={bearStyles.restingArmLeft} />
         <View style={bearStyles.restingArmRight} />
 
-        {/* 
-          COVER PAWS — z:20, rendered AFTER head in tree so they paint on top.
-          They are positioned absolute relative to bearContainer.
-          At rest: translated down below eye level (hidden behind notebook).
-          On password focus: translate up to cover the eye area of the head.
-        */}
-        <Animated.View style={[
-          bearStyles.coverArm,
-          bearStyles.coverArmLeft,
-          {
-            transform: [
-              { translateY: leftPawY },
-              { translateX: leftPawX },
-              { rotate: leftPawRot },
-            ],
-          }
-        ]}>
-          {/* Upper arm */}
-          <View style={bearStyles.coverArmUpper} />
-          {/* Paw with toes */}
-          <View style={bearStyles.coverPaw}>
-            <View style={bearStyles.pawToe} />
-            <View style={bearStyles.pawToe} />
-            <View style={bearStyles.pawToe} />
-          </View>
-        </Animated.View>
+        {/* Lower body — helps connect the bear to the form below */}
+        <View style={bearStyles.torso}>
+          <View style={bearStyles.bellyPatch} />
+        </View>
 
-        <Animated.View style={[
-          bearStyles.coverArm,
-          bearStyles.coverArmRight,
-          {
-            transform: [
-              { translateY: rightPawY },
-              { translateX: rightPawX },
-              { rotate: rightPawRot },
-            ],
-          }
-        ]}>
-          <View style={bearStyles.coverArmUpper} />
-          <View style={bearStyles.coverPaw}>
-            <View style={bearStyles.pawToe} />
-            <View style={bearStyles.pawToe} />
-            <View style={bearStyles.pawToe} />
-          </View>
-        </Animated.View>
+        {/* Side hands — visible but not used for the password blink animation */}
+        <View style={bearStyles.sideHandLeft} />
+        <View style={bearStyles.sideHandRight} />
 
       </View>
 
@@ -537,7 +491,7 @@ const bearStyles = StyleSheet.create({
   // overflow: visible is CRITICAL — lets cover arms paint outside bounds
   bearContainer: {
     width: 110,
-    height: 100,
+    height: 126,
     position: 'relative',
     alignItems: 'center',
     // NO overflow: hidden here
@@ -681,23 +635,25 @@ const bearStyles = StyleSheet.create({
   // ── Resting arms (always visible, z:3, sit just below notebook edge) ──
   restingArmLeft: {
     position: 'absolute',
-    bottom: 0,
-    left: 6,
-    width: 26,
-    height: 18,
-    borderRadius: 10,
+    bottom: -1,
+    left: 5,
+    width: 24,
+    height: 16,
+    borderRadius: 12,
     backgroundColor: BEAR_BODY,
     zIndex: 3,
+    transform: [{ rotate: '-16deg' }],
   },
   restingArmRight: {
     position: 'absolute',
-    bottom: 0,
-    right: 6,
-    width: 26,
-    height: 18,
-    borderRadius: 10,
+    bottom: -1,
+    right: 5,
+    width: 24,
+    height: 16,
+    borderRadius: 12,
     backgroundColor: BEAR_BODY,
     zIndex: 3,
+    transform: [{ rotate: '16deg' }],
   },
 
   // ── Cover arms — z:20, render AFTER head in JSX tree ──────────────
@@ -717,9 +673,9 @@ const bearStyles = StyleSheet.create({
     bottom: 6,
   },
   coverArmUpper: {
-    width: 22,
-    height: 30,
-    borderRadius: 11,
+    width: 16,
+    height: 19,
+    borderRadius: 12,
     backgroundColor: BEAR_BODY,
     shadowColor: BEAR_DARK,
     shadowOpacity: 0.2,
@@ -728,16 +684,15 @@ const bearStyles = StyleSheet.create({
     elevation: 4,
   },
   coverPaw: {
-    width: 30,
-    height: 22,
-    borderRadius: 13,
+    width: 37,
+    height: 20,
+    borderRadius: 12,
     backgroundColor: BEAR_DARK,
-    marginTop: -4,        // overlap the upper arm slightly
+    marginTop: -2,
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingTop: 4,
-    gap: 3,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 4,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -745,11 +700,76 @@ const bearStyles = StyleSheet.create({
     elevation: 5,
   },
   pawToe: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 4,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: BEAR_BODY,
     opacity: 0.85,
+  },
+  pawToeSmall: {
+    width: 3.5,
+    height: 4.5,
+    opacity: 0.78,
+    transform: [{ translateY: 1 }],
+  },
+  pawToeMid: {
+    width: 4.5,
+    height: 5.5,
+    transform: [{ translateY: -1 }],
+  },
+  pawToeLarge: {
+    width: 5,
+    height: 6.5,
+    opacity: 0.9,
+    transform: [{ translateY: -2 }],
+  },
+
+  // ── Torso ────────────────────────────────────────────────────────
+  torso: {
+    position: 'absolute',
+    bottom: -6,
+    width: 72,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: BEAR_BODY,
+    zIndex: 1,
+    shadowColor: BEAR_DARK,
+    shadowOpacity: 0.14,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  sideHandLeft: {
+    position: 'absolute',
+    bottom: 4,
+    left: 2,
+    width: 16,
+    height: 12,
+    borderRadius: 8,
+    backgroundColor: BEAR_BODY,
+    zIndex: 2,
+    transform: [{ rotate: '-12deg' }],
+  },
+  sideHandRight: {
+    position: 'absolute',
+    bottom: 4,
+    right: 2,
+    width: 16,
+    height: 12,
+    borderRadius: 8,
+    backgroundColor: BEAR_BODY,
+    zIndex: 2,
+    transform: [{ rotate: '12deg' }],
+  },
+  bellyPatch: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: 10,
+    width: 28,
+    height: 18,
+    borderRadius: 10,
+    backgroundColor: BEAR_FACE,
+    opacity: 0.6,
   },
 
   // ── Peek label ────────────────────────────────────────────────────
