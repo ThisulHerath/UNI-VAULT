@@ -416,6 +416,12 @@ const styles = StyleSheet.create({
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: Spacing.md, height: 46, marginBottom: Spacing.md },
   searchInput: { flex: 1, color: Colors.text, fontSize: FontSizes.md },
   
+  filterGroup: { flexDirection: 'row', gap: 6, marginRight: Spacing.md, borderRightWidth: 1, borderRightColor: '#BFDBFE', paddingRight: Spacing.md },
+  filterBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#BFDBFE' },
+  filterBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterBtnText: { fontSize: FontSizes.xs, fontWeight: '700', color: Colors.primary },
+  filterBtnTextActive: { color: Colors.surface },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.md },
   modalContent: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
   modalTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.lg },
