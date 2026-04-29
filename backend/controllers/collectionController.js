@@ -82,7 +82,8 @@ exports.getCollectionById = async (req, res, next) => {
     }
 
     // Only owner can view private collection
-    if (collection.isPrivate && collection.owner.toString() !== req.user._id.toString()) {
+    const ownerId = resolveEntityId(collection.owner);
+    if (collection.isPrivate && ownerId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'This collection is private.' });
     }
 
@@ -119,7 +120,8 @@ exports.updateCollection = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Collection not found.' });
     }
 
-    if (collection.owner.toString() !== req.user._id.toString()) {
+    const ownerId = resolveEntityId(collection.owner);
+    if (ownerId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     }
 
@@ -154,7 +156,8 @@ exports.updateCollectionNotes = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Collection not found.' });
     }
 
-    if (collection.owner.toString() !== req.user._id.toString()) {
+    const ownerId = resolveEntityId(collection.owner);
+    if (ownerId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     }
 
@@ -187,7 +190,8 @@ exports.updateCollectionFulfillments = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Collection not found.' });
     }
 
-    if (collection.owner.toString() !== req.user._id.toString()) {
+    const ownerId = resolveEntityId(collection.owner);
+    if (ownerId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     }
 
@@ -230,7 +234,8 @@ exports.deleteCollection = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Collection not found.' });
     }
 
-    if (collection.owner.toString() !== req.user._id.toString()) {
+    const ownerId = resolveEntityId(collection.owner);
+    if (ownerId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     }
 

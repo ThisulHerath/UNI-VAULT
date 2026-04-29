@@ -25,6 +25,7 @@ const noteRequestRoutes = require('./routes/noteRequestRoutes');
 const collectionRoutes  = require('./routes/collectionRoutes');
 const studyGroupRoutes  = require('./routes/studyGroupRoutes');
 const migrateLegacyNoteFiles = require('./utils/migrateLegacyNoteFiles');
+const devRoutes = require('./routes/devRoutes');
 
 const app = express();
 
@@ -63,6 +64,10 @@ app.use('/api/reviews',     reviewRoutes);
 app.use('/api/requests',    noteRequestRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/groups',      studyGroupRoutes);
+// Dev-only routes
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/dev', devRoutes);
+}
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

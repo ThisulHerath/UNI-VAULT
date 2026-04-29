@@ -13,6 +13,13 @@ const {
   uploadNoteFileToGridFs,
 } = require('../utils/noteFiles');
 
+const resolveEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value._id) return value._id.toString();
+  return value.toString();
+};
+
 const sendLegacyNoteFile = (res, legacyPath, note) => {
   const downloadName = note?.originalFileName || path.basename(legacyPath);
   res.setHeader('Content-Disposition', `inline; filename="${downloadName.replace(/"/g, '\\"')}"`);
@@ -190,7 +197,8 @@ exports.updateNote = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Note not found.' });
     }
 
-    if (note.uploadedBy.toString() !== req.user._id.toString()) {
+    const uploaderId = resolveEntityId(note.uploadedBy);
+    if (uploaderId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised to update this note.' });
     }
 
@@ -266,7 +274,8 @@ exports.deleteNote = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Note not found.' });
     }
 
-    if (note.uploadedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const uploaderId = resolveEntityId(note.uploadedBy);
+    if (uploaderId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this note.' });
     }
 

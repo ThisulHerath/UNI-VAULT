@@ -1,5 +1,12 @@
 const Subject = require('../models/Subject');
 
+const resolveEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value._id) return value._id.toString();
+  return value.toString();
+};
+
 // ─── @route  POST /api/subjects ───────────────────────────────────────────────
 // ─── @access Private
 exports.createSubject = async (req, res, next) => {
@@ -65,7 +72,8 @@ exports.updateSubject = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Subject not found.' });
     }
 
-    if (subject.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const creatorId = resolveEntityId(subject.createdBy);
+    if (creatorId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to update this subject.' });
     }
 
@@ -89,7 +97,8 @@ exports.deleteSubject = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Subject not found.' });
     }
 
-    if (subject.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const creatorId = resolveEntityId(subject.createdBy);
+    if (creatorId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this subject.' });
     }
 

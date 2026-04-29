@@ -224,7 +224,8 @@ exports.updateReview = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Review not found.' });
     }
 
-    if (review.reviewer.toString() !== req.user._id.toString()) {
+    const reviewerId = String(review.reviewer?._id || review.reviewer);
+    if (reviewerId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised to update this review.' });
     }
 
@@ -277,7 +278,8 @@ exports.deleteReview = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Review not found.' });
     }
 
-    if (review.reviewer.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const reviewerId = String(review.reviewer?._id || review.reviewer);
+    if (reviewerId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this review.' });
     }
 
@@ -304,9 +306,9 @@ exports.voteReview = async (req, res, next) => {
       return res.status(400).json({ success: false, message: `Vote value must be one of: ${VOTE_VALUES.join(', ')}` });
     }
 
-    const existingVote = review.votes.find((vote) => vote.user.toString() === req.user._id.toString());
+    const existingVote = review.votes.find((vote) => String(vote.user) === String(req.user._id));
     if (existingVote && existingVote.value === voteValue) {
-      review.votes = review.votes.filter((vote) => vote.user.toString() !== req.user._id.toString());
+      review.votes = review.votes.filter((vote) => String(vote.user) !== String(req.user._id));
     } else if (existingVote) {
       existingVote.value = voteValue;
       existingVote.votedAt = new Date();
@@ -320,7 +322,7 @@ exports.voteReview = async (req, res, next) => {
 
     await review.populate('reviewer', REVIEW_POPULATE);
     const reviewerStatsMap = await buildReviewerStatsMap([review.reviewer._id || review.reviewer]);
-    const hasVote = review.votes.some((vote) => vote.user.toString() === req.user._id.toString());
+    const hasVote = review.votes.some((vote) => String(vote.user) === String(req.user._id));
     res.status(200).json({
       success: true,
       message: hasVote ? 'Vote saved.' : 'Vote removed.',

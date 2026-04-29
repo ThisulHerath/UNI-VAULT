@@ -154,7 +154,8 @@ exports.updateRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    if (request.requestedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const requesterId = resolveEntityId(request.requestedBy);
+    if (requesterId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to update this request.' });
     }
 
@@ -163,7 +164,7 @@ exports.updateRequest = async (req, res, next) => {
     }
 
     const { title, description, status, fulfilledByNote } = req.body;
-    const isRequestOwner = request.requestedBy.toString() === req.user._id.toString();
+    const isRequestOwner = requesterId === String(req.user._id);
     const isTryingToFulfill = status === 'fulfilled' || fulfilledByNote;
 
     if (isRequestOwner && isTryingToFulfill) {
@@ -197,7 +198,8 @@ exports.fulfillRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    if (request.requestedBy.toString() === req.user._id.toString()) {
+    const requesterId = resolveEntityId(request.requestedBy);
+    if (requesterId === String(req.user._id)) {
       return res.status(403).json({
         success: false,
         message: 'You cannot fulfill your own request.',
@@ -249,7 +251,8 @@ exports.fulfillRequest = async (req, res, next) => {
         return res.status(404).json({ success: false, message: 'Note not found.' });
       }
 
-      if (note.uploadedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      const noteOwnerId = resolveEntityId(note.uploadedBy);
+      if (noteOwnerId !== String(req.user._id) && req.user.role !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'You can only fulfill with your own uploaded note.',
@@ -301,7 +304,8 @@ exports.updateFulfillmentVisibility = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    if (request.requestedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const requesterId = resolveEntityId(request.requestedBy);
+    if (requesterId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to update this request.' });
     }
 
@@ -366,7 +370,8 @@ exports.closeRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    if (request.requestedBy.toString() !== req.user._id.toString()) {
+    const requesterId = resolveEntityId(request.requestedBy);
+    if (requesterId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised to close this request.' });
     }
 
@@ -392,7 +397,8 @@ exports.reopenRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    if (request.requestedBy.toString() !== req.user._id.toString()) {
+    const requesterId = resolveEntityId(request.requestedBy);
+    if (requesterId !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'Not authorised to reopen this request.' });
     }
 
@@ -429,7 +435,8 @@ exports.deleteRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found.' });
     }
 
-    if (request.requestedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const requesterId = resolveEntityId(request.requestedBy);
+    if (requesterId !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorised to delete this request.' });
     }
 

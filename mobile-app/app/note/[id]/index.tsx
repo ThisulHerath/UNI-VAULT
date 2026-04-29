@@ -151,6 +151,8 @@ export default function NoteDetailScreen() {
   const [myComment, setMyComment] = useState('');
   const [myReviewId, setMyReviewId] = useState<string | null>(null);
   const [myOriginalComment, setMyOriginalComment] = useState('');
+  const [myOriginalRating, setMyOriginalRating] = useState(0);
+  const [isEditingReview, setIsEditingReview] = useState(false);
   const [ratingValidationMessage, setRatingValidationMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
@@ -340,17 +342,19 @@ export default function NoteDetailScreen() {
         };
       });
 
-      const mine = incoming.find((r: any) => r.reviewer?._id === user?._id);
+      const mine = incoming.find((r: any) => String(r.reviewer?._id || r.reviewer) === String(user?._id));
       if (mine) {
         setMyReviewId(mine._id);
         setMyRating(mine.rating);
         setMyComment(mine.comment || '');
         setMyOriginalComment((mine.comment || '').trim());
+        setMyOriginalRating(mine.rating || 0);
       } else {
         setMyReviewId(null);
         setMyRating(0);
         setMyComment('');
         setMyOriginalComment('');
+        setMyOriginalRating(0);
       }
     } catch (e: any) {
       Toast.show({ type: 'error', text1: 'Error', text2: e.message || 'Failed to load reviews' });
@@ -527,6 +531,7 @@ export default function NoteDetailScreen() {
       if (myReviewId) {
         await reviewService.updateReview(myReviewId, payload);
         Toast.show({ type: 'success', text1: '✅ Review updated!', text2: 'Your review was updated successfully' });
+        setIsEditingReview(false);
       } else {
         await noteService.createReview(id, payload);
         Toast.show({ type: 'success', text1: '✅ Review submitted!', text2: 'Thank you for your feedback' });
@@ -592,6 +597,8 @@ export default function NoteDetailScreen() {
             setMyRating(0);
             setMyComment('');
             setMyOriginalComment('');
+            setMyOriginalRating(0);
+            setIsEditingReview(false);
             await refreshReviews();
           } catch (error: any) {
             Toast.show({ type: 'error', text1: 'Delete Failed', text2: error.message || 'Unable to delete review' });
@@ -606,6 +613,8 @@ export default function NoteDetailScreen() {
     setMyRating(review.rating);
     setMyComment(review.comment || '');
     setMyOriginalComment((review.comment || '').trim());
+    setMyOriginalRating(review.rating || 0);
+    setIsEditingReview(true);
   };
 
   const handleStarSelect = (star: number) => {
@@ -663,7 +672,7 @@ export default function NoteDetailScreen() {
   }
   if (!note)   return <View style={styles.center}><Text style={styles.err}>Note not found.</Text></View>;
 
-  const isOwner = note.uploadedBy?._id === user?._id;
+  const isOwner = note && user && String(note.uploadedBy?._id || note.uploadedBy) === String(user._id);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -794,7 +803,7 @@ export default function NoteDetailScreen() {
       </View>
 
       {/* Submit review */}
-      {!isOwner && !myReviewId && (
+      {!isOwner && (!myReviewId || isEditingReview) && (
         <View style={styles.writeCard}>
           <Text style={styles.reviewLabel}>Write a Review</Text>
           <View style={styles.starRow}>
@@ -827,10 +836,24 @@ export default function NoteDetailScreen() {
               )}
             </TouchableOpacity>
             {myReviewId && (
-              <TouchableOpacity style={styles.deleteReviewBtn} onPress={() => handleDeleteReview(myReviewId)}>
-                <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                <Text style={styles.deleteReviewBtnText}>Delete Review</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity style={styles.deleteReviewBtn} onPress={() => handleDeleteReview(myReviewId)}>
+                  <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                  <Text style={styles.deleteReviewBtnText}>Delete Review</Text>
+                </TouchableOpacity>
+                {isEditingReview && (
+                  <TouchableOpacity
+                    style={[styles.deleteReviewBtn, { backgroundColor: Colors.surfaceAlt, borderColor: Colors.border, marginLeft: 8 }]}
+                    onPress={() => {
+                      setIsEditingReview(false);
+                      setMyRating(myOriginalRating);
+                      setMyComment(myOriginalComment);
+                    }}
+                  >
+                    <Text style={{ color: Colors.textMuted, fontWeight: '700', fontSize: FontSizes.xs }}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </View>
         </View>
@@ -927,12 +950,12 @@ export default function NoteDetailScreen() {
             {visibleReviews.map((r) => {
               const currentVote = (r.votes || []).find((vote: any) => {
                 const voteUserId = typeof vote.user === 'string' ? vote.user : vote.user?._id;
-                return voteUserId === user?._id;
+                return String(voteUserId) === String(user?._id);
               })?.value;
               const isHelpfulActive = currentVote === 'helpful';
               const isNotHelpfulActive = currentVote === 'notHelpful';
-              const isMine = r.reviewer?._id === user?._id;
-              const isNoteOwnerReview = r.reviewer?._id === note?.uploadedBy?._id;
+              const isMine = String(r.reviewer?._id || r.reviewer) === String(user?._id);
+              const isNoteOwnerReview = String(r.reviewer?._id || r.reviewer) === String(note?.uploadedBy?._id || note?.uploadedBy);
 
               return (
                 <View key={r._id} style={[styles.reviewCard, isMine && styles.myReviewCard]}>
@@ -1172,8 +1195,8 @@ const styles = StyleSheet.create({
   reviewLabel:  { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
   starRow:      { flexDirection: 'row', gap: 6, marginBottom: Spacing.sm },
   starRowSmall: { flexDirection: 'row', gap: 2, marginTop: 3 },
-  submitBtn:    { backgroundColor: Colors.primary, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' },
-  submitText:   { color: Colors.text, fontWeight: '700' },
+  submitBtn:    { backgroundColor: Colors.primary, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', minHeight: 44 },
+  submitText:   { color: Colors.text, fontWeight: '700', fontSize: FontSizes.xs },
   reviewCard:   { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
   myReviewCard: { borderLeftWidth: 3, borderLeftColor: Colors.primary },
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
@@ -1337,6 +1360,7 @@ const styles = StyleSheet.create({
   deleteReviewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
     borderColor: Colors.error + '80',
@@ -1344,6 +1368,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: Colors.error + '16',
+    minHeight: 44,
   },
   deleteReviewBtnText: {
     color: Colors.error,
