@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
   Animated,
   Easing,
 } from 'react-native';
@@ -20,6 +22,7 @@ import Toast from 'react-native-toast-message';
 import { groupService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 import { AmbientBackground } from '../../components/ambient-background';
+import { SkeletonBlock } from '../../components/ui/skeleton-block';
 
 export default function GroupsScreen() {
   const [publicGroups, setPublicGroups] = useState<any[]>([]);
@@ -170,12 +173,30 @@ export default function GroupsScreen() {
   const renderSection = (title: string, groups: any[], emptyText: string) => (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionCount, styles.sectionCountGhost]}>{groups.length}</Text>
         <Text style={styles.sectionTitle}>{title}</Text>
         <Text style={styles.sectionCount}>{groups.length}</Text>
       </View>
       {groups.length > 0 ? groups.map(renderItem) : <Text style={styles.empty}>{emptyText}</Text>}
     </View>
   );
+
+  function GroupsSkeletonList() {
+    return (
+      <View style={{ padding: Spacing.md, paddingBottom: 120 }}>
+        {[0, 1, 2, 3].map((idx) => (
+          <View key={idx} style={styles.card}>
+            <SkeletonBlock width={24} height={24} borderRadius={Radius.full} />
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <SkeletonBlock width="60%" height={14} borderRadius={8} />
+              <SkeletonBlock width="45%" height={11} borderRadius={8} style={{ marginTop: 8 }} />
+              <SkeletonBlock width="32%" height={11} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -251,7 +272,7 @@ export default function GroupsScreen() {
             }}
           >
             <TouchableOpacity style={styles.iconBtn} onPress={() => setJoinModalVisible(true)}>
-              <Ionicons name="key-outline" size={18} color={Colors.text} />
+              <Ionicons name="key-outline" size={22} color={Colors.text} />
             </TouchableOpacity>
           </Animated.View>
           <Animated.View
@@ -300,9 +321,26 @@ export default function GroupsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
+        <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ padding: Spacing.md, paddingTop: 4, paddingBottom: 120 }}>
+          <View style={styles.joinByCodeCard}>
+            <View style={styles.joinByCodeTextWrap}>
+              <Text style={styles.joinByCodeTitle}>Join a private group</Text>
+              <Text style={styles.joinByCodeSubtitle}>Enter an invitation code to join directly.</Text>
+            </View>
+            <TouchableOpacity style={styles.joinPrivateBtn} onPress={() => setJoinModalVisible(true)}>
+              <Text style={styles.joinPrivateBtnText}>Join Private</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.sectionTitle, { marginTop: Spacing.sm }]}>My Groups</Text>
+          <GroupsSkeletonList />
+
+          <Text style={[styles.sectionTitle, { marginTop: Spacing.sm }]}>Public Groups</Text>
+          <GroupsSkeletonList />
+        </ScrollView>
       ) : (
         <ScrollView
+          showsVerticalScrollIndicator={true}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
           contentContainerStyle={{ padding: Spacing.md, paddingTop: 4, paddingBottom: 120 }}
         >
@@ -324,6 +362,10 @@ export default function GroupsScreen() {
 
       <Modal visible={joinModalVisible} transparent animationType="fade" onRequestClose={() => setJoinModalVisible(false)}>
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.modalKeyboardWrap}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Join Private Group</Text>
             <Text style={styles.modalBody}>Enter the invitation code shared by the group owner.</Text>
@@ -344,6 +386,7 @@ export default function GroupsScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -364,17 +407,22 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   pageTitle: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text },
   fab: {
-    width: 38,
-    height: 38,
-    borderRadius: Radius.full,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: Radius.full,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: Colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
@@ -420,7 +468,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800' },
-  sectionCount: { color: Colors.textMuted, fontSize: FontSizes.xs, fontWeight: '700' },
+  sectionCount: { color: Colors.textMuted, fontSize: FontSizes.md, fontWeight: '800' },
+  sectionCountGhost: { opacity: 0 },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
@@ -452,6 +501,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.md,
+  },
+  modalKeyboardWrap: {
+    width: '100%',
   },
   modalCard: {
     width: '100%',
@@ -487,4 +539,3 @@ const styles = StyleSheet.create({
   modalCancelText: { color: Colors.primary, fontWeight: '800' },
   modalPrimaryText: { color: Colors.text, fontWeight: '800' },
 });
-

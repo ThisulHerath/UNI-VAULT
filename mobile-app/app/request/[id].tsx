@@ -10,6 +10,8 @@ import {
   Pressable,
   TextInput,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -751,6 +753,7 @@ export default function RequestDetailScreen() {
         onRequestClose={() => setShowFulfillModal(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => !fulfillSubmitting && setShowFulfillModal(false)}>
+          <KeyboardAvoidingView style={styles.modalKeyboardWrap} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Fulfill Request</Text>
             <Text style={styles.modalText}>
@@ -802,6 +805,7 @@ export default function RequestDetailScreen() {
               </TouchableOpacity>
             </View>
           </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 
@@ -917,6 +921,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  modalKeyboardWrap: {
+    width: '100%',
   },
   modalTitle: {
     color: Colors.text,

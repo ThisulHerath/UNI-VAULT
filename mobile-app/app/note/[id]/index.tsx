@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Linking, TextInput, Modal, Animated, Easing, Image,
+  ActivityIndicator, Linking, TextInput, Modal, Animated, Easing, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -675,7 +675,13 @@ export default function NoteDetailScreen() {
   const isOwner = note && user && String(note.uploadedBy?._id || note.uploadedBy) === String(user._id);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+    >
       {/* Back + actions */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
@@ -1167,6 +1173,7 @@ export default function NoteDetailScreen() {
 
       {dialogElement}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

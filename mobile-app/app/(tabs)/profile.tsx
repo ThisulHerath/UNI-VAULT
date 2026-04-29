@@ -52,6 +52,9 @@ export default function ProfileScreen() {
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
+  const profileHeroAnim = React.useRef(new Animated.Value(0)).current;
+  const profileMetaAnim = React.useRef(new Animated.Value(0)).current;
+  const profileStatsAnim = React.useRef(new Animated.Value(0)).current;
   const bgOrbAnim = React.useRef(new Animated.Value(0)).current;
   const heroOrbAnim = React.useRef(new Animated.Value(0)).current;
   const arcAnim = React.useRef(new Animated.Value(0)).current;
@@ -89,6 +92,31 @@ export default function ProfileScreen() {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
+      profileHeroAnim.setValue(0);
+      profileMetaAnim.setValue(0);
+      profileStatsAnim.setValue(0);
+      Animated.sequence([
+        Animated.spring(profileHeroAnim, {
+          toValue: 1,
+          friction: 7,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+        Animated.parallel([
+          Animated.timing(profileMetaAnim, {
+            toValue: 1,
+            duration: 360,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(profileStatsAnim, {
+            toValue: 1,
+            duration: 420,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
       bgOrbAnim.setValue(0);
       heroOrbAnim.setValue(0);
       arcAnim.setValue(0);
@@ -148,7 +176,7 @@ export default function ProfileScreen() {
         heroLoop.stop();
         arcLoop.stop();
       };
-    }, [arcAnim, bgOrbAnim, heroOrbAnim, pageEntranceAnim])
+    }, [arcAnim, bgOrbAnim, heroOrbAnim, pageEntranceAnim, profileHeroAnim, profileMetaAnim, profileStatsAnim])
   );
 
   useFocusEffect(
@@ -413,24 +441,73 @@ export default function ProfileScreen() {
           ]}
         />
 
-        <View style={s.avatarRing}>
-          <View style={s.avatarRingInner}>
-            {user?.avatar
-              ? <Image source={{ uri: user.avatar }} style={s.avatar} />
-              : (
-                <View style={[s.avatar, { backgroundColor: C.primary }]}> 
-                  <Text style={s.avatarInitial}>{user?.name?.[0]?.toUpperCase()}</Text>
-                </View>
-              )
-            }
+        <Animated.View
+          style={{
+            opacity: profileHeroAnim,
+            transform: [
+              {
+                scale: profileHeroAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.82, 1],
+                }),
+              },
+              {
+                translateY: profileHeroAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [16, 0],
+                }),
+              },
+            ],
+          }}
+        >
+          <View style={s.avatarRing}>
+            <View style={s.avatarRingInner}>
+              {user?.avatar
+                ? <Image source={{ uri: user.avatar }} style={s.avatar} />
+                : (
+                  <View style={[s.avatar, { backgroundColor: C.primary }]}> 
+                    <Text style={s.avatarInitial}>{user?.name?.[0]?.toUpperCase()}</Text>
+                  </View>
+                )
+              }
+            </View>
           </View>
-        </View>
+        </Animated.View>
 
-        <Text style={s.name}>{user?.name}</Text>
-        <Text style={s.email}>{user?.email}</Text>
+        <Animated.View
+          style={{
+            opacity: profileMetaAnim,
+            transform: [
+              {
+                translateY: profileMetaAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [14, 0],
+                }),
+              },
+            ],
+          }}
+        >
+          <Text style={s.name}>{user?.name}</Text>
+          <Text style={s.email}>{user?.email}</Text>
+        </Animated.View>
 
         {(user?.batch || user?.university) && (
-          <View style={s.tagRow}>
+          <Animated.View
+            style={[
+              s.tagRow,
+              {
+                opacity: profileMetaAnim,
+                transform: [
+                  {
+                    translateY: profileMetaAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [18, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             {user.batch && (
               <View style={s.tag}>
                 <Ionicons name="school-outline" size={10} color={C.primary} style={{ marginRight: 4 }} />
@@ -443,11 +520,24 @@ export default function ProfileScreen() {
                 <Text style={s.tagText} numberOfLines={1}>{user.university}</Text>
               </View>
             )}
-          </View>
+          </Animated.View>
         )}
       </View>
 
       {/* ── STATS ── */}
+      <Animated.View
+        style={{
+          opacity: profileStatsAnim,
+          transform: [
+            {
+              translateY: profileStatsAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [22, 0],
+              }),
+            },
+          ],
+        }}
+      >
       <View style={s.statsCard}>
         {[
           { label: 'Notes', value: myNotes.length, icon: 'document-text-outline' },
@@ -466,6 +556,7 @@ export default function ProfileScreen() {
           </React.Fragment>
         ))}
       </View>
+      </Animated.View>
 
       {/* ── BADGES ── */}
       {(user?.isEmailVerified || (user?.reviewCount ?? 0) >= 5) && (
@@ -709,3 +800,4 @@ const s = StyleSheet.create({
   modalConfirm:   { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: C.error, alignItems: 'center' },
   modalConfirmText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
 });
+
