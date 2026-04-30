@@ -422,6 +422,11 @@ const styles = StyleSheet.create({
   filterBtnText: { fontSize: FontSizes.xs, fontWeight: '700', color: Colors.primary },
   filterBtnTextActive: { color: Colors.surface },
 
+  sortGroup: { flexDirection: 'row', gap: 6 },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  sortBtnText: { fontSize: FontSizes.xs, fontWeight: '700', color: Colors.text },
+  sortBtnTextActive: { color: Colors.surface },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.md },
   modalContent: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
   modalTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.lg },
