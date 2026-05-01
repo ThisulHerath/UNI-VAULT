@@ -10,6 +10,7 @@ import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
+import { UniversityPicker } from '../../components/ui/university-picker';
 
 const C = {
   bg: '#F8FAFC',
@@ -92,12 +93,6 @@ export default function EditProfileScreen() {
     }
   };
 
-  const fields = [
-    { key: 'name', label: 'Full Name', placeholder: 'John Doe', icon: 'person-outline' },
-    { key: 'university', label: 'University', placeholder: 'e.g. University of Colombo', icon: 'business-outline' },
-    { key: 'batch', label: 'Batch / Year', placeholder: 'e.g. SE2020', icon: 'calendar-outline' },
-  ];
-
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
@@ -137,31 +132,54 @@ export default function EditProfileScreen() {
 
         {/* Form fields */}
         <View style={s.form}>
-          {fields.map((field) => {
-            const isFocused = focusedField === field.key;
-            return (
-              <View key={field.key} style={s.fieldWrap}>
-                <Text style={s.fieldLabel}>{field.label}</Text>
-                <View style={[s.inputRow, isFocused && s.inputRowFocused]}>
-                  <View style={[s.inputIconWrap, isFocused && s.inputIconFocused]}>
-                    <Ionicons name={field.icon as any} size={16} color={isFocused ? C.primary : C.textDim} />
-                  </View>
-                  <TextInput
-                    style={s.input}
-                    placeholder={field.placeholder}
-                    placeholderTextColor={C.placeholder}
-                    value={(formData as any)[field.key]}
-                    onChangeText={(t) => setFormData({ ...formData, [field.key]: t })}
-                    onFocus={() => setFocusedField(field.key)}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                  {(formData as any)[field.key]?.length > 0 && (
-                    <Ionicons name="checkmark-circle" size={16} color={C.primary + '80'} style={{ marginRight: 12 }} />
-                  )}
-                </View>
+          <View style={s.fieldWrap}>
+            <Text style={s.fieldLabel}>Full Name</Text>
+            <View style={[s.inputRow, focusedField === 'name' && s.inputRowFocused]}>
+              <View style={[s.inputIconWrap, focusedField === 'name' && s.inputIconFocused]}>
+                <Ionicons name="person-outline" size={16} color={focusedField === 'name' ? C.primary : C.textDim} />
               </View>
-            );
-          })}
+              <TextInput
+                style={s.input}
+                placeholder="John Doe"
+                placeholderTextColor={C.placeholder}
+                value={formData.name}
+                onChangeText={(t) => setFormData({ ...formData, name: t })}
+                onFocus={() => setFocusedField('name')}
+                onBlur={() => setFocusedField(null)}
+              />
+              {formData.name.length > 0 && (
+                <Ionicons name="checkmark-circle" size={16} color={C.primary + '80'} style={{ marginRight: 12 }} />
+              )}
+            </View>
+          </View>
+
+          <UniversityPicker
+            label="University"
+            value={formData.university}
+            onChangeText={(university) => setFormData({ ...formData, university })}
+            placeholder="Start typing your university"
+          />
+
+          <View style={s.fieldWrap}>
+            <Text style={s.fieldLabel}>Batch / Year</Text>
+            <View style={[s.inputRow, focusedField === 'batch' && s.inputRowFocused]}>
+              <View style={[s.inputIconWrap, focusedField === 'batch' && s.inputIconFocused]}>
+                <Ionicons name="calendar-outline" size={16} color={focusedField === 'batch' ? C.primary : C.textDim} />
+              </View>
+              <TextInput
+                style={s.input}
+                placeholder="e.g. SE2020"
+                placeholderTextColor={C.placeholder}
+                value={formData.batch}
+                onChangeText={(t) => setFormData({ ...formData, batch: t })}
+                onFocus={() => setFocusedField('batch')}
+                onBlur={() => setFocusedField(null)}
+              />
+              {formData.batch.length > 0 && (
+                <Ionicons name="checkmark-circle" size={16} color={C.primary + '80'} style={{ marginRight: 12 }} />
+              )}
+            </View>
+          </View>
         </View>
 
         {/* Save button */}

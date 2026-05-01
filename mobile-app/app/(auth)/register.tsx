@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext';
+import { UniversityPicker } from '../../components/ui/university-picker';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
 const ACCENT = Colors.primary;
@@ -330,7 +331,13 @@ export default function RegisterScreen() {
             <View style={styles.optionalBadge}><Text style={styles.optionalBadgeText}>optional</Text></View>
           </View>
 
-          <FormField label="University" icon="business-outline" value={form.university} onChangeText={update('university')} optional />
+          <UniversityPicker
+            label="University"
+            value={form.university}
+            onChangeText={update('university')}
+            placeholder="Start typing your university"
+            optional
+          />
           <FormField label="Batch / Intake" icon="calendar-outline" value={form.batch} onChangeText={update('batch')} autoCapitalize="characters" optional />
 
           <View style={[styles.sectionLabel, { marginTop: 6 }]}>
