@@ -424,6 +424,7 @@ const styles = StyleSheet.create({
 
   sortGroup: { flexDirection: 'row', gap: 6 },
   sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  sortBtnActive: { backgroundColor: Colors.text, borderColor: Colors.text },
   sortBtnText: { fontSize: FontSizes.xs, fontWeight: '700', color: Colors.text },
   sortBtnTextActive: { color: Colors.surface },
 
