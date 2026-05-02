@@ -19,13 +19,15 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import Toast from 'react-native-toast-message';
 import { io, Socket } from 'socket.io-client';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { groupService } from '../../services/dataServices';
 import { getSavedStateMapForNotes } from '../../services/collectionLogic';
 import { useAppDialog } from '../../hooks/use-app-dialog';
-import { API_ORIGIN } from '../../services/api';
+import { API_ORIGIN, BASE_URL } from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 
@@ -400,13 +402,33 @@ export default function GroupDetailScreen() {
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'image/*',
         ],
+        copyToCacheDirectory: true,
       });
 
-      if (result.canceled || !result.assets?.[0]) {
+      console.log('DocumentPicker result (group):', result);
+
+      // If the picker returned a non-success type (cancelled), stop
+      if ((result as any)?.type && (result as any).type !== 'success') {
         return;
       }
 
-      const file = result.assets[0];
+      // Support both newer `assets` shape and legacy `{ type: 'success', uri, name, size, mimeType }`
+      let file = (result as any)?.assets?.[0] ?? ((result as any)?.type === 'success' ? (result as any) : null);
+      if (!file) return;
+
+      // On iOS copy to cache to ensure the uploadable path is accessible
+      try {
+        if (Platform.OS === 'ios' && file.uri) {
+          const name = file.name || file.uri.split('/').pop() || `picked-${Date.now()}`;
+          const dest = FileSystem.cacheDirectory + name;
+          console.log('Copying picked file to cache (group):', file.uri, '->', dest);
+          await FileSystem.copyAsync({ from: file.uri, to: dest });
+          file = { ...file, uri: dest };
+          console.log('Copied picked file to cache (group):', dest);
+        }
+      } catch (err: any) {
+        console.warn('Failed to copy picked file to cache (group):', err?.message || err);
+      }
       const nextAttachment = {
         uri: file.uri,
         name: file.name,
@@ -530,8 +552,29 @@ export default function GroupDetailScreen() {
           } as any);
         }
 
-        const result = await groupService.sendMessage(group._id, formData);
-        console.log('Message sent successfully:', result);
+        try {
+          const result = await groupService.sendMessage(group._id, formData);
+          console.log('Message sent successfully (axios):', result);
+        } catch (errAxios) {
+          console.warn('Axios sendMessage failed, attempting fetch fallback:', errAxios?.message || errAxios);
+          // On iOS, axios multipart uploads can misbehave — use fetch fallback
+          const token = await AsyncStorage.getItem('univault_token');
+          const uploadUrl = `${BASE_URL}/groups/${group._id}/messages`;
+          const res = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+            },
+            body: formData as any,
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Upload failed (fetch fallback): ${res.status} ${text}`);
+          }
+          const result = await res.json();
+          console.log('Message sent successfully (fetch):', result);
+        }
+
         Toast.show({ type: 'success', text1: 'Message sent!' });
         setMessageText('');
         setPendingAttachment(null);
@@ -539,7 +582,7 @@ export default function GroupDetailScreen() {
         // Fallback: refresh messages if socket doesn't work
         await load();
       } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Error sending message (final):', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         Toast.show({ type: 'error', text1: 'Failed to send message', text2: message });
       }

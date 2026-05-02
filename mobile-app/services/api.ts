@@ -95,7 +95,8 @@ const normalizeAssetUrlsInPayload = (payload: unknown): unknown => {
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  // Render free instances can cold-start after inactivity and may take >15s.
+  timeout:15000,
   headers: {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true', // Bypass ngrok's HTML interstitial page
@@ -120,7 +121,17 @@ api.interceptors.response.use(
     response.data = normalizeAssetUrlsInPayload(response.data);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalConfig = error.config as (typeof error.config & { __retryOnce?: boolean }) | undefined;
+    const isNetworkWakeupIssue =
+      error.code === 'ECONNABORTED' ||
+      error.message === 'Network Error';
+
+    if (originalConfig && isNetworkWakeupIssue && !originalConfig.__retryOnce) {
+      originalConfig.__retryOnce = true;
+      return api.request(originalConfig);
+    }
+
     const message =
       error.response?.data?.message ||
       error.message ||
