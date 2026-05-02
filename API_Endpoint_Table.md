@@ -80,11 +80,13 @@ This table summarizes the main REST API endpoints used in UniVault. It focuses o
 | Method | Endpoint | Access | Purpose | Request Body / Notes | Response |
 |---|---|---|---|---|---|
 | GET | `/api/collections` | Protected | Get the current user’s collections | Requires Bearer token | Returns list of collections |
+| GET | `/api/collections/public` | Protected | Discover public collections | Optional `search`, `tag`, `page`, `limit` queries | Returns paginated public collections |
 | GET | `/api/collections/:id` | Protected | Get one collection by ID | `:id` must be valid | Returns collection details |
-| POST | `/api/collections` | Protected | Create a new collection | JSON with `name`, optional `description`, etc. | Returns created collection |
+| POST | `/api/collections` | Protected | Create a new collection | JSON with `name`, optional `description`, `tags`, etc. | Returns created collection |
 | PUT | `/api/collections/:id` | Protected | Update a collection | JSON with updated collection fields | Returns updated collection |
-| PUT | `/api/collections/:id/notes` | Protected | Add or remove a note from the collection | JSON with `noteId`, `action: add | remove` | Returns updated collection |
-| PUT | `/api/collections/:id/fulfillments` | Protected | Add or remove a request fulfillment | JSON with `requestId`, `action: add | remove` | Returns updated collection |
+| PUT | `/api/collections/:id/vote` | Protected | Upvote/downvote a public collection | JSON with `value: upvote \| downvote \| none` | Returns updated collection |
+| PUT | `/api/collections/:id/notes` | Protected | Add or remove a note from the collection | JSON with `noteId`, `action: add \| remove` | Returns updated collection |
+| PUT | `/api/collections/:id/fulfillments` | Protected | Add or remove a request fulfillment | JSON with `requestId`, `action: add \| remove` | Returns updated collection |
 | DELETE | `/api/collections/:id` | Protected | Delete a collection | Requires ownership | Returns success message |
 
 ---
