@@ -260,15 +260,15 @@ export default function CollectionsScreen() {
                   ))}
                 </View>
                 <View style={styles.sortGroup}>
-                  <TouchableOpacity style={styles.sortBtn} onPress={() => setSortOption('date')}>
+                  <TouchableOpacity style={[styles.sortBtn, sortOption === 'date' && styles.sortBtnActive]} onPress={() => setSortOption('date')}>
                     <Ionicons name="calendar-outline" size={14} color={sortOption === 'date' ? Colors.surface : Colors.text} />
                     <Text style={[styles.sortBtnText, sortOption === 'date' && styles.sortBtnTextActive]}>Date</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.sortBtn} onPress={() => setSortOption('name')}>
+                  <TouchableOpacity style={[styles.sortBtn, sortOption === 'name' && styles.sortBtnActive]} onPress={() => setSortOption('name')}>
                     <Ionicons name="text-outline" size={14} color={sortOption === 'name' ? Colors.surface : Colors.text} />
                     <Text style={[styles.sortBtnText, sortOption === 'name' && styles.sortBtnTextActive]}>Name</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.sortBtn} onPress={() => setSortOption('priority')}>
+                  <TouchableOpacity style={[styles.sortBtn, sortOption === 'priority' && styles.sortBtnActive]} onPress={() => setSortOption('priority')}>
                     <Ionicons name="flag-outline" size={14} color={sortOption === 'priority' ? Colors.surface : Colors.text} />
                     <Text style={[styles.sortBtnText, sortOption === 'priority' && styles.sortBtnTextActive]}>Priority</Text>
                   </TouchableOpacity>
