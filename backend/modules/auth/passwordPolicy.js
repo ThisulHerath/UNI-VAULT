@@ -49,7 +49,7 @@ const containsPersonalInfo = (s, { name, email } = {}) => {
   return tokens.some((t) => t && t.length >= 3 && lower.includes(t.toLowerCase()));
 };
 
-exports.checkPassword = (value, { req }) => {
+const checkPassword = (value, { req }) => {
   const pwd = value || '';
   const errors = [];
 
