@@ -4,29 +4,6 @@
 # Environment files
 .env
 
-# Expo / React Native (mobile-app)
-mobile-app/.expo-shared/
-mobile-app/dist/
-mobile-app/web-build/
-mobile-app/.kotlin/
-mobile-app/.metro-health-check*
-
-# Native signing / provisioning files
-mobile-app/*.orig.*
-mobile-app/*.jks
-mobile-app/*.p8
-mobile-app/*.p12
-mobile-app/*.key
-mobile-app/*.mobileprovision
-mobile-app/*.pem
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Generated native folders (Expo prebuild)
-mobile-app/ios/
-mobile-app/android/
-
 # for copilot
 prompt.md
 
