@@ -1,4 +1,5 @@
-# 📚 UniVault
+# 📚 UniVault APP
+
 
 > **A collaborative student platform for sharing notes, building study groups, and discovering academic resources**
 
