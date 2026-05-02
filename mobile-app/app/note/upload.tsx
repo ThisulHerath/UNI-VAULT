@@ -4,10 +4,11 @@ import {
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
-import { noteService } from '../../services/dataServices';
+import { noteService, subjectService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 import { SUBJECT_CATALOG } from '../../constants/subject-catalog';
 
@@ -44,16 +45,40 @@ export default function UploadNoteScreen() {
   const [desc,  setDesc]        = useState('');
   const [tags,  setTags]        = useState('');
   const [file,  setFile]        = useState<any>(null);
-  const [subject, setSubject]   = useState<{ code: string; name: string } | null>(null);
+  const [subject, setSubject]   = useState<{ code: string; name: string; _id?: string } | null>(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [otherSubject, setOtherSubject] = useState('');
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [isPickingDocument, setIsPickingDocument] = useState(false);
+  const [allSubjects, setAllSubjects] = useState<any[]>([]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSubjects = async () => {
+        try {
+          const res = await subjectService.getSubjects();
+          const dbSubjects = res.data || [];
+          // Merge seeded subjects with custom subjects, avoiding duplicates
+          const merged = [...SUBJECT_CATALOG];
+          dbSubjects.forEach((s: any) => {
+            if (!merged.find(existing => (existing.code || '').toUpperCase() === (s.code || '').toUpperCase() && existing.name?.toLowerCase() === s.name?.toLowerCase())) {
+              merged.push({ code: s.code, name: s.name, _id: s._id });
+            }
+          });
+          setAllSubjects(merged);
+        } catch (e) {
+          // Fallback to seeded subjects
+          setAllSubjects(SUBJECT_CATALOG);
+        }
+      };
+      loadSubjects();
+    }, [])
+  );
 
   const normalizedQuery = subjectQuery.trim().toLowerCase();
 
-  const exactMatchedSubject = SUBJECT_CATALOG.find((s) => {
+  const exactMatchedSubject = allSubjects.find((s) => {
     if (!normalizedQuery) return false;
     const code = (s.code || '').toLowerCase();
     const name = (s.name || '').toLowerCase();
@@ -63,7 +88,7 @@ export default function UploadNoteScreen() {
 
   const allowOtherSubjectInput = !subject && !exactMatchedSubject;
 
-  const filteredExistingSubjects = SUBJECT_CATALOG.filter((s) => {
+  const filteredExistingSubjects = allSubjects.filter((s) => {
     if (!normalizedQuery) return true;
     const code = (s.code || '').toLowerCase();
     const name = (s.name || '').toLowerCase();

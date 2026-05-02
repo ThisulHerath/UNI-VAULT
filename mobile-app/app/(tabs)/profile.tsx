@@ -658,6 +658,7 @@ export default function ProfileScreen() {
         { icon: 'person-outline', label: 'Edit Profile', sub: 'Update your info & photo', route: '/profile/edit', danger: false },
         { icon: 'lock-closed-outline', label: 'Change Password', sub: 'Keep your account secure', route: '/profile/password', danger: false },
         { icon: 'bookmark-outline', label: 'My Collections', sub: 'Saved notes & resources', route: '/collections', danger: false },
+        { icon: 'layers-outline', label: 'Manage Subjects', sub: 'Create & manage subjects', route: '/profile/subjects', danger: false },
       ].map((item) => (
         <TouchableOpacity key={item.label} style={s.menuItem} onPress={() => router.push(item.route as any)}>
           <View style={s.menuIconBg}>

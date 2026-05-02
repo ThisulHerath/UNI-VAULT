@@ -6,7 +6,6 @@ const subjectSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Subject name is required'],
       trim: true,
-      unique: true,
       maxlength: [120, 'Subject name cannot exceed 120 characters'],
     },
     code: {

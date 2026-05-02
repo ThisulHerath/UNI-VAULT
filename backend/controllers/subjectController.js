@@ -7,6 +7,19 @@ const resolveEntityId = (value) => {
   return value.toString();
 };
 
+// ─── @route  GET /api/subjects/my ────────────────────────────────────────────
+// ─── @access Private
+exports.getMySubjects = async (req, res, next) => {
+  try {
+    const subjects = await Subject.find({ createdBy: req.user._id })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: subjects.length, data: subjects });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── @route  POST /api/subjects ───────────────────────────────────────────────
 // ─── @access Private
 exports.createSubject = async (req, res, next) => {

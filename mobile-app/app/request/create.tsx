@@ -12,6 +12,7 @@ export default function CreateRequestScreen() {
   const [desc, setDesc]       = useState('');
   const [subject, setSubject] = useState<SubjectCatalogItem | null>(null);
   const [subjectIdByCode, setSubjectIdByCode] = useState<Record<string, string>>({});
+  const [allSubjects, setAllSubjects] = useState<any[]>([]);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,8 +23,10 @@ export default function CreateRequestScreen() {
     subjectService
       .getSubjects()
       .then((r) => {
+        const allData = r.data || [];
+        setAllSubjects(allData);
         const subjectMap: Record<string, string> = {};
-        (r.data || []).forEach((item: any) => {
+        allData.forEach((item: any) => {
           if (item?._id) {
             const codeKey = normalizeSubjectKey(item.code);
             const nameKey = normalizeSubjectKey(item.name);
@@ -34,6 +37,7 @@ export default function CreateRequestScreen() {
         setSubjectIdByCode(subjectMap);
       })
       .catch(() => {
+        setAllSubjects(SUBJECT_CATALOG);
         Toast.show({
           type: 'error',
           text1: 'Subjects unavailable',
@@ -43,7 +47,7 @@ export default function CreateRequestScreen() {
   }, []);
 
   const normalizedQuery = subjectQuery.trim().toLowerCase();
-  const filteredSubjects = SUBJECT_CATALOG.filter((s) => {
+  const filteredSubjects = (allSubjects.length > 0 ? allSubjects : SUBJECT_CATALOG).filter((s) => {
     if (!normalizedQuery) return true;
     const code = (s.code || '').toLowerCase();
     const name = (s.name || '').toLowerCase();

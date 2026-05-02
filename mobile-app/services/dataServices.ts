@@ -44,6 +44,10 @@ export const subjectService = {
     const res = await api.get('/subjects', { params });
     return res.data;
   },
+  getMySubjects: async () => {
+    const res = await api.get('/subjects/my');
+    return res.data;
+  },
   getSubjectById: async (id: string) => {
     const res = await api.get(`/subjects/${id}`);
     return res.data;

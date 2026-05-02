@@ -3,15 +3,8 @@
 
 # Environment files
 .env
-.env.*
-!.env.example
-!.env*.example
 
-# Logs
-*.log
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+
 
 # OS/editor files
 .DS_Store
@@ -21,13 +14,11 @@ Thumbs.db
 backend/uploads/
 
 # Expo / React Native (mobile-app)
-mobile-app/.expo/
 mobile-app/.expo-shared/
 mobile-app/dist/
 mobile-app/web-build/
 mobile-app/.kotlin/
 mobile-app/.metro-health-check*
-mobile-app/expo-env.d.ts
 
 # Native signing / provisioning files
 mobile-app/*.orig.*
@@ -47,4 +38,4 @@ mobile-app/android/
 
 # for copilot
 prompt.md
-.github
+

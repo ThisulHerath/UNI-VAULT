@@ -47,6 +47,9 @@ export default function SubjectDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.pageTitle}>Subject Details</Text>
+        <TouchableOpacity onPress={() => router.push(`/subject/${id}/edit`)} style={{ marginLeft: 'auto' }}>
+          <Ionicons name="create-outline" size={22} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
