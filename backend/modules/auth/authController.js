@@ -187,7 +187,18 @@ exports.updatePassword = async (req, res, next) => {
 // ─── @access Private
 exports.deleteAccount = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { password } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Password is incorrect.' });
+    }
 
     // Delete avatar from disk
     if (user.avatarPublicId) {

@@ -27,6 +27,9 @@ const updatePasswordRules = [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
   body('newPassword').custom(checkPassword),
 ];
+const deleteAccountRules = [
+  body('password').notEmpty().withMessage('Password is required to delete account'),
+];
 
 router.post('/register', uploadAvatar.single('avatar'), registerRules, register);
 router.post('/login', login);
@@ -34,6 +37,6 @@ router.post('/login', login);
 router.get('/me',       protect, getMe);
 router.put('/me',       protect, uploadAvatar.single('avatar'), updateProfile);
 router.put('/password', protect, updatePasswordRules, updatePassword);
-router.delete('/me',    protect, deleteAccount);
+router.delete('/me',    protect, deleteAccountRules, deleteAccount);
 
 module.exports = router;
