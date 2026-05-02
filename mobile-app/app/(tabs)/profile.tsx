@@ -49,6 +49,7 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
@@ -255,6 +256,35 @@ export default function ProfileScreen() {
       setShowSignOutModal(false);
       router.replace('/(auth)/welcome');
     } finally { setSigningOut(false); }
+  };
+
+  const confirmDeleteAccount = () => {
+    showDialog(
+      'Delete Account?',
+      'This action is permanent. Your account and related data will be removed and cannot be recovered.',
+      [
+        { label: 'Cancel', role: 'cancel' },
+        {
+          label: deletingAccount ? 'Deleting...' : 'Delete Account',
+          role: 'destructive',
+          loading: deletingAccount,
+          onPress: async () => {
+            if (deletingAccount) return;
+            try {
+              setDeletingAccount(true);
+              await authService.deleteAccount();
+              await logout();
+              Toast.show({ type: 'success', text1: 'Account Deleted' });
+              router.replace('/(auth)/welcome');
+            } catch (e: any) {
+              Toast.show({ type: 'error', text1: 'Delete Failed', text2: e.message });
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) return (
@@ -684,6 +714,26 @@ export default function ProfileScreen() {
         <Ionicons name="chevron-forward" size={16} color={C.error + '60'} />
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[s.signOutItem, { marginTop: 4 }]}
+        onPress={confirmDeleteAccount}
+        disabled={deletingAccount}
+      >
+        <View style={s.signOutIconBg}>
+          <Ionicons name="trash-outline" size={18} color={C.error} />
+        </View>
+        <View style={s.menuText}>
+          <Text style={[s.menuLabel, { color: C.error }]}>
+            {deletingAccount ? 'Deleting Account...' : 'Delete Account'}
+          </Text>
+          <Text style={s.menuSub}>Permanently remove your account</Text>
+        </View>
+        {deletingAccount
+          ? <ActivityIndicator size="small" color={C.error} />
+          : <Ionicons name="chevron-forward" size={16} color={C.error + '60'} />
+        }
+      </TouchableOpacity>
+
       {/* ── SIGN OUT MODAL ── */}
       <Modal visible={showSignOutModal} transparent animationType="fade" onRequestClose={() => setShowSignOutModal(false)}>
         <View style={s.overlay}>
@@ -801,4 +851,3 @@ const s = StyleSheet.create({
   modalConfirm:   { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: C.error, alignItems: 'center' },
   modalConfirmText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
 });
-
