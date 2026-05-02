@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Subject = require('../models/Subject');
+const Subject = require('../modules/subject/Subject');
 require('dotenv').config();
 
 const SUBJECT_CATALOG = [
@@ -70,7 +70,7 @@ const seedSubjects = async () => {
     console.log('✓ Connected to MongoDB');
 
     // Get a system user (you might need to adjust this based on your User model)
-    const User = require('../models/User');
+    const User = require('../modules/auth/User');
     let systemUser = await User.findOne({ role: 'admin' });
     
     if (!systemUser) {

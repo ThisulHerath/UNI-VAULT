@@ -17,13 +17,13 @@ const connectDB      = require('./config/db');
 const errorHandler   = require('./middleware/errorHandler');
 
 // Route imports
-const authRoutes        = require('./routes/authRoutes');
-const noteRoutes        = require('./routes/noteRoutes');
-const subjectRoutes     = require('./routes/subjectRoutes');
-const reviewRoutes      = require('./routes/reviewRoutes');
-const noteRequestRoutes = require('./routes/noteRequestRoutes');
-const collectionRoutes  = require('./routes/collectionRoutes');
-const studyGroupRoutes  = require('./routes/studyGroupRoutes');
+const authRoutes        = require('./modules/auth/authRoutes');
+const noteRoutes        = require('./modules/notes/noteRoutes');
+const subjectRoutes     = require('./modules/subject/subjectRoutes');
+const reviewRoutes      = require('./modules/review/reviewRoutes');
+const noteRequestRoutes = require('./modules/request/noteRequestRoutes');
+const collectionRoutes  = require('./modules/collection/collectionRoutes');
+const studyGroupRoutes  = require('./modules/groups/studyGroupRoutes');
 const migrateLegacyNoteFiles = require('./utils/migrateLegacyNoteFiles');
 const devRoutes = require('./routes/devRoutes');
 

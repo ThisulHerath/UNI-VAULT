@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const Note = require('../models/Note');
+const Note = require('../modules/notes/Note');
 const {
   buildRelativeNoteFileUrl,
   getLegacyNoteFilePath,

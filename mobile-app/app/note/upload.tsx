@@ -40,18 +40,20 @@ const isAllowedNoteFile = (mimeType?: string, fileName?: string) => {
   return extension ? ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'docx'].includes(extension) : false;
 };
 
+type SubjectOption = { code: string; name: string; _id?: string };
+
 export default function UploadNoteScreen() {
   const [title, setTitle]       = useState('');
   const [desc,  setDesc]        = useState('');
   const [tags,  setTags]        = useState('');
   const [file,  setFile]        = useState<any>(null);
-  const [subject, setSubject]   = useState<{ code: string; name: string; _id?: string } | null>(null);
+  const [subject, setSubject]   = useState<SubjectOption | null>(null);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [otherSubject, setOtherSubject] = useState('');
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [isPickingDocument, setIsPickingDocument] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<any[]>([]);
+  const [allSubjects, setAllSubjects] = useState<SubjectOption[]>([]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -60,7 +62,7 @@ export default function UploadNoteScreen() {
           const res = await subjectService.getSubjects();
           const dbSubjects = res.data || [];
           // Merge seeded subjects with custom subjects, avoiding duplicates
-          const merged = [...SUBJECT_CATALOG];
+          const merged: SubjectOption[] = [...SUBJECT_CATALOG];
           dbSubjects.forEach((s: any) => {
             if (!merged.find(existing => (existing.code || '').toUpperCase() === (s.code || '').toUpperCase() && existing.name?.toLowerCase() === s.name?.toLowerCase())) {
               merged.push({ code: s.code, name: s.name, _id: s._id });
@@ -95,7 +97,7 @@ export default function UploadNoteScreen() {
     return code.includes(normalizedQuery) || name.includes(normalizedQuery);
   });
 
-  const selectSubject = (item: { code: string; name: string }) => {
+  const selectSubject = (item: SubjectOption) => {
     setSubject(item);
     setSubjectQuery(item.name || item.code || '');
     setOtherSubject('');

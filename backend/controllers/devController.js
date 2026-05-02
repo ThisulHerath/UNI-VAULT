@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Review = require('../models/Review');
+const Review = require('../modules/review/Review');
 
 // Create a review document directly for local testing
 exports.createTestReview = async (req, res, next) => {
