@@ -1,8 +1,7 @@
-// ─── MUST be first: force Node.js to use Google DNS (8.8.8.8) ───────────────
-// This fixes "querySrv ECONNREFUSED" on Windows where the local router's
-// IPv6 DNS cannot resolve MongoDB Atlas SRV records.
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+// ─── DNS Configuration (only needed on Windows/local development) ──────────────
+// Uncomment below if you encounter DNS resolution issues on Windows
+// const dns = require('dns');
+// dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 require('dotenv').config();
 
@@ -42,7 +41,31 @@ app.use((req, res, next) => {
 
 // ─── Core Middleware ──────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*', // Configure via env var
+  origin: (() => {
+    const configuredOrigins = (process.env.CORS_ORIGIN || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
+    if (!configuredOrigins.length || configuredOrigins.includes('*')) {
+      return true;
+    }
+
+    return (origin, callback) => {
+      // Allow mobile/native or server-to-server requests without an Origin header.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (configuredOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    };
+  })(),
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' })); // Limit request body size

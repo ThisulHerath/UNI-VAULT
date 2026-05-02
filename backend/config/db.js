@@ -5,7 +5,8 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000,
-      family: 4, // Force IPv4 — fixes querySrv ECONNREFUSED on many Windows/ISP setups
+      // Force IPv4 only on Windows/local development; remove for cloud environments
+      ...(process.env.NODE_ENV === 'development' && { family: 4 }),
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     return conn;
