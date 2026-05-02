@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext';
+import usePasswordValidation from '../../hooks/use-password-validation';
 import { UniversityPicker } from '../../components/ui/university-picker';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
@@ -202,6 +203,7 @@ export default function RegisterScreen() {
   // Determine which "step" we're on for visual feedback
   const step1Done = !!form.name && !!form.email;
   const step2Done = !!form.password && !!form.confirmPassword;
+  const { errors: passwordErrors, isValid: isPasswordValid } = usePasswordValidation(form.password, { name: form.name, email: form.email });
   const handleBackToWelcome = () => router.push('/(auth)/welcome');
 
   const pickImage = async () => {
@@ -226,8 +228,8 @@ export default function RegisterScreen() {
       Toast.show({ type: 'error', text1: 'Invalid Email', text2: 'Please enter a valid email address.' });
       return;
     }
-    if (form.password.length < 6) {
-      Toast.show({ type: 'error', text1: 'Weak Password', text2: 'Password must be at least 6 characters.' });
+    if (!isPasswordValid) {
+      Toast.show({ type: 'error', text1: 'Weak Password', text2: passwordErrors.join('\n') });
       return;
     }
     if (form.password !== form.confirmPassword) {
