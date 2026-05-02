@@ -4,15 +4,6 @@
 # Environment files
 .env
 
-
-
-# OS/editor files
-.DS_Store
-Thumbs.db
-
-# Backend
-backend/uploads/
-
 # Expo / React Native (mobile-app)
 mobile-app/.expo-shared/
 mobile-app/dist/
