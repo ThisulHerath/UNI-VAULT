@@ -183,34 +183,36 @@ export default function CollectionsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
           contentContainerStyle={{ padding: Spacing.md, paddingBottom: 120 }}
           ListHeaderComponent={
-            <TouchableOpacity 
-              style={styles.exploreBanner} 
-              onPress={() => router.push('/public-collections')}
-            >
-              <View style={styles.exploreBannerContent}>
-                <Ionicons name="search" size={24} color={Colors.primary} />
-                <View style={{ marginLeft: Spacing.sm }}>
-                  <Text style={styles.exploreTitle}>Explore Public Collections</Text>
-                  <Text style={styles.exploreDesc}>Find study materials shared by others</Text>
+            <>
+              <TouchableOpacity
+                style={styles.exploreBanner}
+                onPress={() => router.push('/public-collections')}
+              >
+                <View style={styles.exploreBannerContent}>
+                  <Ionicons name="search" size={24} color={Colors.primary} />
+                  <View style={{ marginLeft: Spacing.sm }}>
+                    <Text style={styles.exploreTitle}>Explore Public Collections</Text>
+                    <Text style={styles.exploreDesc}>Find study materials shared by others</Text>
+                  </View>
                 </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.searchBox}>
+                <Ionicons name="search" size={18} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search your collections"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor={Colors.textMuted}
+                />
+                {searchQuery ? (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
-            </TouchableOpacity>
-            <View style={styles.searchBox}>
-              <Ionicons name="search" size={18} color={Colors.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search your collections"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholderTextColor={Colors.textMuted}
-              />
-              {searchQuery ? (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            </>
           }
           ListEmptyComponent={<Text style={styles.empty}>No collections yet. Save notes to create one!</Text>}
         />
