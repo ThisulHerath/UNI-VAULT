@@ -52,6 +52,9 @@ export default function CollectionDetailScreen() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editCourseCode, setEditCourseCode] = useState('');
+  const [editTargetDate, setEditTargetDate] = useState('');
+  const [editPriority, setEditPriority] = useState<CollectionPriority>('normal');
   const [editIsPrivate, setEditIsPrivate] = useState(true);
   const [editTags, setEditTags] = useState('');
 
@@ -102,6 +105,9 @@ export default function CollectionDetailScreen() {
   const openEditModal = () => {
     setEditName(collection?.name || '');
     setEditDescription(collection?.description || '');
+    setEditCourseCode(collection?.courseCode || '');
+    setEditTargetDate(collection?.targetDate ? String(collection.targetDate).slice(0, 10) : '');
+    setEditPriority(collection?.priority || 'normal');
     setEditIsPrivate(collection?.isPrivate ?? true);
     setEditTags((collection?.tags || []).join(', '));
     setEditModalVisible(true);
@@ -118,6 +124,9 @@ export default function CollectionDetailScreen() {
       await collectionService.updateCollection(id, {
         name: editName.trim(),
         description: editDescription.trim(),
+        courseCode: editCourseCode.trim(),
+        targetDate: editTargetDate.trim() || null,
+        priority: editPriority,
         isPrivate: editIsPrivate,
         tags: tagsArray,
       });
