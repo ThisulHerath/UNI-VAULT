@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Modal, TextInput, Switch, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +53,7 @@ export default function CollectionsScreen() {
   const [collections, setCollections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Create Modal State
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -88,6 +89,22 @@ export default function CollectionsScreen() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const visibleCollections = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return collections;
+
+    return collections.filter((collection) => {
+      const fields = [
+        collection?.name,
+        collection?.description,
+        collection?.courseCode,
+        collection?.priority,
+      ];
+
+      return fields.some((field) => String(field || '').toLowerCase().includes(query));
+    });
+  }, [collections, searchQuery]);
 
   const handleCreateCollection = async () => {
     if (!newName.trim()) {
