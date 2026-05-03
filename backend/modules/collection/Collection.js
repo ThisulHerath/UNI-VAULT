@@ -100,4 +100,7 @@ collectionSchema.virtual('score').get(function () {
   return up - down;
 });
 
+collectionSchema.index({ owner: 1, priority: 1, createdAt: -1 });
+collectionSchema.index({ owner: 1, targetDate: 1 });
+
 module.exports = mongoose.model('Collection', collectionSchema);
