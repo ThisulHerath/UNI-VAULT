@@ -198,6 +198,10 @@ export const groupService = {
     });
     return res.data;
   },
+  updateGroupSettings: async (id: string, data: { privacy?: string; joinMode?: string }) => {
+    const res = await api.put(`/groups/${id}`, data);
+    return res.data;
+  },
   updateGroupProfileImage: async (id: string, file: { uri: string; type: string; name: string }) => {
     const formData = new FormData();
     formData.append('coverImage', file as any);

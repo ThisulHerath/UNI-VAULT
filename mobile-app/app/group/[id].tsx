@@ -129,6 +129,9 @@ export default function GroupDetailScreen() {
   } | null>(null);
   const [draftCoverImage, setDraftCoverImage] = useState<{ uri: string } | null>(null);
   const [, setSharedNoteSavedState] = useState<Record<string, boolean>>({});
+  const [groupSettingsModalVisible, setGroupSettingsModalVisible] = useState(false);
+  const [editingPrivacy, setEditingPrivacy] = useState<'public' | 'private'>('public');
+  const [editingJoinMode, setEditingJoinMode] = useState<'open' | 'request'>('open');
   const socketRef = useRef<Socket | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const shouldAutoScrollRef = useRef(false);
@@ -567,6 +570,29 @@ export default function GroupDetailScreen() {
     });
   };
 
+  const openGroupSettings = () => {
+    if (!group) return;
+    setEditingPrivacy(group.privacy);
+    setEditingJoinMode(group.joinMode);
+    setGroupSettingsModalVisible(true);
+  };
+
+  const saveGroupSettings = async () => {
+    if (!group) return;
+    await runAction('update-settings', async () => {
+      const data: any = { privacy: editingPrivacy };
+      if (editingPrivacy === 'public') {
+        data.joinMode = editingJoinMode;
+      }
+      await groupService.updateGroupSettings(group._id, data);
+      setGroupSettingsModalVisible(false);
+      Toast.show({ type: 'success', text1: 'Updated', text2: 'Group settings saved.' });
+      await load();
+    });
+  };
+
+  const cancelGroupSettings = () => setGroupSettingsModalVisible(false);
+
   const handleSendMessage = async () => {
     if (!group) return;
 
@@ -823,6 +849,20 @@ export default function GroupDetailScreen() {
                     <Text style={styles.metaValue}>{requesterRole}</Text>
                   </View>
                 </View>
+
+                {isAdmin && (
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={openGroupSettings}
+                    disabled={busyAction === 'update-settings'}
+                  >
+                    {busyAction === 'update-settings' ? (
+                      <ActivityIndicator color={Colors.text} />
+                    ) : (
+                      <Text style={styles.buttonText}>Edit Group Settings</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
 
                 {group.privacy === 'public' && (
                   <View style={styles.infoBadgeRow}>
@@ -1319,6 +1359,68 @@ export default function GroupDetailScreen() {
                 disabled={busyAction?.startsWith('edit-message-')}
               >
                 <Text style={styles.buttonText}>{busyAction?.startsWith('edit-message-') ? 'Saving...' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={groupSettingsModalVisible} transparent animationType="fade" onRequestClose={cancelGroupSettings}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Group Settings</Text>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Privacy</Text>
+              <View style={styles.privacyOptions}>
+                <TouchableOpacity
+                  style={[styles.privacyOption, editingPrivacy === 'public' && styles.privacyOptionSelected]}
+                  onPress={() => setEditingPrivacy('public')}
+                >
+                  <Ionicons name="earth-outline" size={20} color={editingPrivacy === 'public' ? Colors.text : Colors.primary} />
+                  <Text style={[styles.privacyOptionText, editingPrivacy === 'public' && styles.privacyOptionTextSelected]}>Public</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.privacyOption, editingPrivacy === 'private' && styles.privacyOptionSelected]}
+                  onPress={() => setEditingPrivacy('private')}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color={editingPrivacy === 'private' ? Colors.text : Colors.primary} />
+                  <Text style={[styles.privacyOptionText, editingPrivacy === 'private' && styles.privacyOptionTextSelected]}>Private</Text>
+                </TouchableOpacity>
+              </View>
+              {editingPrivacy === 'public' && (
+                <>
+                  <Text style={styles.modalLabel}>Join Mode</Text>
+                  <View style={styles.joinModeOptions}>
+                    <TouchableOpacity
+                      style={[styles.joinModeOption, editingJoinMode === 'open' && styles.joinModeOptionSelected]}
+                      onPress={() => setEditingJoinMode('open')}
+                    >
+                      <Text style={[styles.joinModeOptionText, editingJoinMode === 'open' && styles.joinModeOptionTextSelected]}>Open</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.joinModeOption, editingJoinMode === 'request' && styles.joinModeOptionSelected]}
+                      onPress={() => setEditingJoinMode('request')}
+                    >
+                      <Text style={[styles.joinModeOptionText, editingJoinMode === 'request' && styles.joinModeOptionTextSelected]}>Request Approval</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.button, styles.modalCancel]}
+                onPress={cancelGroupSettings}
+                disabled={busyAction === 'update-settings'}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.modalConfirm, styles.modalDeleteSpacing]}
+                onPress={saveGroupSettings}
+                disabled={busyAction === 'update-settings'}
+              >
+                <Text style={styles.buttonText}>{busyAction === 'update-settings' ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1856,6 +1958,65 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginTop: Spacing.sm,
     backgroundColor: Colors.background,
+  },
+  modalLabel: {
+    fontSize: FontSizes.md,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  privacyOptions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  privacyOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  privacyOptionSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '15',
+  },
+  privacyOptionText: {
+    color: Colors.primary,
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+  },
+  privacyOptionTextSelected: {
+    color: Colors.text,
+  },
+  joinModeOptions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  joinModeOption: {
+    flex: 1,
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  joinModeOptionSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '15',
+  },
+  joinModeOptionText: {
+    color: Colors.primary,
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+  },
+  joinModeOptionTextSelected: {
+    color: Colors.text,
   },
   viewerContainer: { flex: 1, backgroundColor: Colors.background },
   viewerHeader: {
