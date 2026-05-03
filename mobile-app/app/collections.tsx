@@ -62,6 +62,7 @@ function CollectionsSkeletonList() {
 
 export default function CollectionsScreen() {
   const [collections, setCollections] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
