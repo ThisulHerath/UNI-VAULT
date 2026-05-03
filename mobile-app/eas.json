@@ -1,0 +1,12 @@
+{
+  "build": {
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://uni-vault.onrender.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}
