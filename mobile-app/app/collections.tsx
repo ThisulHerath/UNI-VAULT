@@ -121,6 +121,7 @@ export default function CollectionsScreen() {
     const noteCount = Array.isArray(item?.notes) ? item.notes.length : 0;
     const fulfillmentCount = Array.isArray(item?.requestFulfillments) ? item.requestFulfillments.length : 0;
     const totalCount = noteCount + fulfillmentCount;
+    const targetLabel = formatTargetDate(item?.targetDate);
 
     return (
       <TouchableOpacity style={styles.card} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: item._id } })}>
@@ -129,6 +130,11 @@ export default function CollectionsScreen() {
         </View>
         <View style={styles.infoContainer}>
           <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
+          <View style={styles.badgeRow}>
+            {item.courseCode ? <Text style={styles.badge}>{item.courseCode}</Text> : null}
+            <Text style={styles.badge}>{formatPriorityLabel(item.priority)}</Text>
+            {targetLabel ? <Text style={styles.badge}>{targetLabel}</Text> : null}
+          </View>
           <Text style={styles.meta}>{totalCount} Saved Items {item.isPrivate ? '' : '• Public'}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
@@ -302,6 +308,8 @@ const styles = StyleSheet.create({
   iconContainer: { backgroundColor: '#DBEAFE', borderRadius: Radius.sm, padding: Spacing.sm, marginRight: Spacing.md },
   infoContainer: { flex: 1 },
   title: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  badge: { fontSize: FontSizes.xs, fontWeight: '700', color: Colors.primary, backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
   meta: { fontSize: FontSizes.xs, color: Colors.primary },
   empty: { textAlign: 'center', color: Colors.textMuted, marginTop: 60, fontSize: FontSizes.md },
   
