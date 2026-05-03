@@ -110,6 +110,8 @@ export default function GroupDetailScreen() {
   const [pendingAttachment, setPendingAttachment] = useState<any>(null);
   const [activeSection, setActiveSection] = useState<'info' | 'chat'>('info');
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; text: string } | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
+  const [editingText, setEditingText] = useState('');
   const [leaveConfirmationVisible, setLeaveConfirmationVisible] = useState(false);
   const [deleteConfirmationVisible, setDeleteConfirmationVisible] = useState(false);
   const [attachmentPickerVisible, setAttachmentPickerVisible] = useState(false);
@@ -264,6 +266,20 @@ export default function GroupDetailScreen() {
             return {
               ...prev,
               messages: prev.messages.filter((msg: any) => msg._id !== data.messageId),
+            };
+          });
+        }
+      });
+
+      // Listen for edited messages
+      socket.on('update-message', (data: { groupId: string; message: any }) => {
+        console.log('Received update message:', data);
+        if (data.groupId === id) {
+          setGroup((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              messages: prev.messages.map((msg: any) => (msg._id === data.message._id ? data.message : msg)),
             };
           });
         }
@@ -626,6 +642,31 @@ export default function GroupDetailScreen() {
   };
 
   const cancelDeleteMessage = () => setDeleteConfirmation(null);
+
+  const openEditMessage = (message: any) => {
+    setEditingMessage({ id: message._id, text: message.text || '' });
+    setEditingText(message.text || '');
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessage(null);
+    setEditingText('');
+  };
+
+  const saveEditedMessage = async () => {
+    if (!group || !editingMessage) return;
+    const trimmedText = editingText.trim();
+
+    await runAction(`edit-message-${editingMessage.id}`, async () => {
+      await groupService.editMessage(group._id, editingMessage.id, { text: trimmedText });
+      Toast.show({ type: 'success', text1: 'Updated', text2: 'Message updated.' });
+      setEditingMessage(null);
+      setEditingText('');
+      shouldAutoScrollRef.current = true;
+      await load();
+    });
+  };
+
   const closeAttachmentPreview = () => setActiveAttachment(null);
 
   if (loading) {
@@ -1082,13 +1123,19 @@ export default function GroupDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={msg._id}
-                      activeOpacity={isMine && !hasAttachment ? 0.75 : 1}
+                      activeOpacity={isMine ? 0.75 : 1}
                       onPress={() => {
                         if (hasAttachment) {
                           openAttachment();
                           return;
                         }
 
+                        if (isMine) {
+                          openEditMessage(msg);
+                          return;
+                        }
+                      }}
+                      onLongPress={() => {
                         if (isMine) {
                           confirmDeleteMessage(msg._id, messageBody || 'message');
                         }
@@ -1109,9 +1156,16 @@ export default function GroupDetailScreen() {
                       )}
                       <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
                         {messageBody ? (
-                          <Text style={[styles.messageText, isMine ? styles.messageTextMine : styles.messageTextOther]}>
-                            {msg.text}
-                          </Text>
+                          <View style={styles.messageTextRow}>
+                            <Text style={[styles.messageText, isMine ? styles.messageTextMine : styles.messageTextOther]}>
+                              {msg.text}
+                            </Text>
+                            {isMine && !hasAttachment ? (
+                              <TouchableOpacity onPress={() => openEditMessage(msg)} style={styles.messageEditButton}>
+                                <Ionicons name="pencil" size={16} color={isMine ? Colors.text : Colors.primary} />
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
                         ) : null}
 
                         {hasAttachment && (
@@ -1233,6 +1287,38 @@ export default function GroupDetailScreen() {
                 disabled={isPickingDocument}
               >
                 <Text style={styles.buttonText}>{isPickingDocument ? 'Selecting...' : 'Choose file'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!editingMessage} transparent animationType="fade" onRequestClose={cancelEditMessage}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Message</Text>
+            <TextInput
+              style={[styles.input, styles.modalTextInput]}
+              value={editingText}
+              onChangeText={setEditingText}
+              placeholder="Update your message"
+              placeholderTextColor={Colors.textMuted}
+              multiline
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.button, styles.modalCancel]}
+                onPress={cancelEditMessage}
+                disabled={busyAction?.startsWith('edit-message-')}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.modalConfirm, styles.modalDeleteSpacing, busyAction?.startsWith('edit-message-') && { opacity: 0.6 }]}
+                onPress={saveEditedMessage}
+                disabled={busyAction?.startsWith('edit-message-')}
+              >
+                <Text style={styles.buttonText}>{busyAction?.startsWith('edit-message-') ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1758,6 +1844,19 @@ const styles = StyleSheet.create({
   messageText: { fontSize: FontSizes.sm },
   messageTextMine: { color: Colors.text, fontWeight: '600' },
   messageTextOther: { color: Colors.text },
+  messageTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  messageEditButton: {
+    padding: 4,
+  },
+  modalTextInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.background,
+  },
   viewerContainer: { flex: 1, backgroundColor: Colors.background },
   viewerHeader: {
     flexDirection: 'row',

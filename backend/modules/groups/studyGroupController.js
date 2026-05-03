@@ -918,6 +918,55 @@ exports.createGroupMessage = async (req, res, next) => {
   }
 };
 
+// ─── @route  PUT /api/groups/:id/messages/:messageId ───────────────────────
+// ─── @access Private (message sender only)
+exports.updateGroupMessage = async (req, res, next) => {
+  try {
+    const { id, messageId } = req.params;
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+
+    const group = await StudyGroup.findById(id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    const message = group.messages.id(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found.' });
+    }
+
+    if (String(message.sender) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only the sender can edit this message.' });
+    }
+
+    if (!isActiveMember(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only group members can modify messages.' });
+    }
+
+    if (!text && !message.attachment?.fileId) {
+      return res.status(400).json({ success: false, message: 'Message text is required.' });
+    }
+
+    message.text = text;
+    await group.save();
+
+    const updatedMessage = await getCreatedGroupMessage(group, message._id);
+    const plainMessage = setGroupMessageAttachmentUrl(updatedMessage, req, group._id.toString());
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`group-${req.params.id}`).emit('update-message', {
+        groupId: req.params.id,
+        message: plainMessage,
+      });
+    }
+
+    res.status(200).json({ success: true, data: plainMessage });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── @route  GET /api/groups/:id/messages/:messageId/file ───────────────────
 // ─── @access Private (group member)
 exports.getGroupMessageFile = async (req, res, next) => {

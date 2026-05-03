@@ -18,6 +18,7 @@ const {
   manageGroupNote,
   getGroupMessages,
   createGroupMessage,
+  updateGroupMessage,
   getGroupMessageFile,
   deleteGroupMessage,
   deleteGroup,
@@ -48,6 +49,7 @@ router.put('/:id/notes', protect, manageGroupNote);
 router.get('/:id/messages', protect, getGroupMessages);
 router.get('/:id/messages/:messageId/file', protect, getGroupMessageFile);
 router.post('/:id/messages', protect, uploadGroupMessageAttachment.single('attachment'), createGroupMessage);
+router.put('/:id/messages/:messageId', protect, updateGroupMessage);
 router.delete('/:id/messages/:messageId', protect, deleteGroupMessage);
 
 module.exports = router;

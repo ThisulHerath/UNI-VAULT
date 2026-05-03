@@ -264,6 +264,10 @@ export const groupService = {
     });
     return res.data;
   },
+  editMessage: async (id: string, messageId: string, data: { text: string }) => {
+    const res = await api.put(`/groups/${id}/messages/${messageId}`, data);
+    return res.data;
+  },
   deleteMessage: async (id: string, messageId: string) => {
     const res = await api.delete(`/groups/${id}/messages/${messageId}`);
     return res.data;
