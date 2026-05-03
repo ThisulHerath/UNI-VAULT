@@ -21,6 +21,22 @@ import { useAppDialog } from '../../hooks/use-app-dialog';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
+type CollectionPriority = 'low' | 'normal' | 'high';
+
+const PRIORITY_OPTIONS: CollectionPriority[] = ['low', 'normal', 'high'];
+
+const formatPriorityLabel = (priority?: string | null) => {
+  if (!priority) return 'Normal';
+  return priority.charAt(0).toUpperCase() + priority.slice(1);
+};
+
+const formatTargetDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showDialog, dialogElement } = useAppDialog();
