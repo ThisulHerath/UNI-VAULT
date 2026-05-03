@@ -177,7 +177,7 @@ export default function CollectionsScreen() {
         <CollectionsSkeletonList />
       ) : (
         <FlatList
-          data={collections}
+          data={visibleCollections}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
@@ -196,6 +196,21 @@ export default function CollectionsScreen() {
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
             </TouchableOpacity>
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color={Colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search your collections"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor={Colors.textMuted}
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           }
           ListEmptyComponent={<Text style={styles.empty}>No collections yet. Save notes to create one!</Text>}
         />
@@ -334,6 +349,8 @@ const styles = StyleSheet.create({
   exploreBannerContent: { flexDirection: 'row', alignItems: 'center' },
   exploreTitle: { fontSize: FontSizes.md, fontWeight: '800', color: Colors.primary },
   exploreDesc: { fontSize: FontSizes.xs, color: Colors.primary, marginTop: 2, opacity: 0.8 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: Spacing.md, height: 46, marginBottom: Spacing.md },
+  searchInput: { flex: 1, color: Colors.text, fontSize: FontSizes.md },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.md },
   modalContent: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
