@@ -223,6 +223,24 @@ export default function CollectionsScreen() {
               placeholderTextColor={Colors.textMuted}
             />
 
+            <Text style={styles.inputLabel}>Priority</Text>
+            <View style={styles.priorityRow}>
+              {PRIORITY_OPTIONS.map((priority) => {
+                const selected = newPriority === priority;
+                return (
+                  <TouchableOpacity
+                    key={priority}
+                    style={[styles.priorityOption, selected && styles.priorityOptionActive]}
+                    onPress={() => setNewPriority(priority)}
+                  >
+                    <Text style={[styles.priorityOptionText, selected && styles.priorityOptionTextActive]}>
+                      {formatPriorityLabel(priority)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <View style={styles.switchRow}>
               <View>
                 <Text style={styles.switchLabel}>Private Collection</Text>
@@ -297,6 +315,11 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.lg },
   inputLabel: { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   input: { backgroundColor: '#F5F9FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: Radius.md, padding: Spacing.sm, fontSize: FontSizes.md, color: Colors.text, marginBottom: Spacing.md },
+  priorityRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  priorityOption: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.md, borderWidth: 1, borderColor: '#BFDBFE', backgroundColor: '#F5F9FF' },
+  priorityOptionActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  priorityOptionText: { color: Colors.primary, fontWeight: '700', fontSize: FontSizes.sm },
+  priorityOptionTextActive: { color: Colors.surface },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, paddingVertical: 8 },
   switchLabel: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text },
   switchDesc: { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
