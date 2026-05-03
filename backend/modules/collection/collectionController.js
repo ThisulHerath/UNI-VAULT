@@ -24,19 +24,29 @@ const canViewFulfillment = (request, user) => {
 
 // ─── @route  POST /api/collections ────────────────────────────────────────────
 // ─── @access Private
+const normalizeCollectionPayload = (body = {}) => {
+  const tags = Array.isArray(body.tags)
+    ? body.tags.map((tag) => String(tag).trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  return {
+    name: body.name,
+    description: body.description,
+    courseCode: body.courseCode ? String(body.courseCode).trim().toUpperCase() : null,
+    targetDate: body.targetDate || null,
+    priority: ['low', 'normal', 'high'].includes(body.priority) ? body.priority : 'normal',
+    isPrivate: body.isPrivate !== undefined ? body.isPrivate : true,
+    tags,
+  };
+};
+
 exports.createCollection = async (req, res, next) => {
   try {
-    const { name, description, courseCode, targetDate, priority, isPrivate, tags } = req.body;
+    const payload = normalizeCollectionPayload(req.body);
 
     const collection = await Collection.create({
-      name,
-      description,
-      courseCode: courseCode || null,
-      targetDate: targetDate || null,
-      priority: priority || 'normal',
+      ...payload,
       owner: req.user._id,
-      isPrivate: isPrivate !== undefined ? isPrivate : true,
-      tags: tags || [],
     });
 
     res.status(201).json({ success: true, data: collection });
