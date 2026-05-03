@@ -39,6 +39,27 @@ const collectionSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // Collections are private by default
     },
+    // Searchable tags for public collections
+    tags: [
+      {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
+    ],
+    // Reddit-style voting for public collections
+    upvotes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    downvotes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,
@@ -54,6 +75,13 @@ collectionSchema.virtual('noteCount').get(function () {
 
 collectionSchema.virtual('requestFulfillmentCount').get(function () {
   return this.requestFulfillments ? this.requestFulfillments.length : 0;
+});
+
+// Virtual: Reddit-style score
+collectionSchema.virtual('score').get(function () {
+  const up = this.upvotes ? this.upvotes.length : 0;
+  const down = this.downvotes ? this.downvotes.length : 0;
+  return up - down;
 });
 
 module.exports = mongoose.model('Collection', collectionSchema);

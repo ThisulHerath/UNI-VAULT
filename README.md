@@ -1,4 +1,5 @@
-# 📚 UniVault
+# 📚 UniVault APP
+
 
 > **A collaborative student platform for sharing notes, building study groups, and discovering academic resources**
 
@@ -67,7 +68,7 @@ User uploads a note:
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack.
 
 ### **Frontend (Mobile App)**
 - **Framework:** React Native (Expo) - v50+

@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import Toast from 'react-native-toast-message';
 import { noteService, subjectService } from '../../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
@@ -112,13 +113,34 @@ export default function UploadNoteScreen() {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*', 'application/msword',
                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
       });
 
-      if (result.canceled || !result.assets?.[0]) {
+      // Debug log to help diagnose iOS picker shapes
+      console.log('DocumentPicker result (note):', result);
+
+      // If the picker returned a non-success type (cancelled), stop
+      if ((result as any)?.type && (result as any).type !== 'success') {
         return;
       }
 
-      const selectedFile = result.assets[0];
+      // Support both newer `assets` shape and legacy `{ type: 'success', uri, name, size, mimeType }`
+      let selectedFile = (result as any)?.assets?.[0] ?? ((result as any)?.type === 'success' ? (result as any) : null);
+      if (!selectedFile) return;
+
+      // iOS can return URIs that are not directly accessible by fetch/axios. Copy to cache and use that path.
+      try {
+        if (Platform.OS === 'ios' && selectedFile.uri) {
+          const name = selectedFile.name || selectedFile.uri.split('/').pop() || `picked-${Date.now()}`;
+          const dest = FileSystem.cacheDirectory + name;
+          console.log('Copying picked file to cache (note):', selectedFile.uri, '->', dest);
+          await FileSystem.copyAsync({ from: selectedFile.uri, to: dest });
+          selectedFile = { ...selectedFile, uri: dest };
+          console.log('Copied picked file to cache (note):', dest);
+        }
+      } catch (err: any) {
+        console.warn('Failed to copy picked file to cache (note):', err?.message || err);
+      }
       if (!isAllowedNoteFile(selectedFile.mimeType, selectedFile.name)) {
         Toast.show({
           type: 'error',

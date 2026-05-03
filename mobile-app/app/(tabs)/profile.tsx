@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image, Modal, Dimensions, Animated, Easing,
+  ActivityIndicator, Image, Modal, Dimensions, Animated, Easing, TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -48,7 +48,10 @@ export default function ProfileScreen() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const pageEntranceAnim = React.useRef(new Animated.Value(0)).current;
@@ -255,6 +258,32 @@ export default function ProfileScreen() {
       setShowSignOutModal(false);
       router.replace('/(auth)/welcome');
     } finally { setSigningOut(false); }
+  };
+
+  const confirmDeleteAccount = () => {
+    setDeletePassword('');
+    setShowDeleteAccountModal(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      Toast.show({ type: 'error', text1: 'Password Required', text2: 'Enter your password to continue.' });
+      return;
+    }
+
+    try {
+      setDeletingAccount(true);
+      await authService.deleteAccount(deletePassword);
+      await logout();
+      setShowDeleteAccountModal(false);
+      setDeletePassword('');
+      Toast.show({ type: 'success', text1: 'Account Deleted' });
+      router.replace('/(auth)/welcome');
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Delete Failed', text2: e.message });
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   if (loading) return (
@@ -684,6 +713,26 @@ export default function ProfileScreen() {
         <Ionicons name="chevron-forward" size={16} color={C.error + '60'} />
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[s.signOutItem, { marginTop: 4 }]}
+        onPress={confirmDeleteAccount}
+        disabled={deletingAccount}
+      >
+        <View style={s.signOutIconBg}>
+          <Ionicons name="trash-outline" size={18} color={C.error} />
+        </View>
+        <View style={s.menuText}>
+          <Text style={[s.menuLabel, { color: C.error }]}>
+            {deletingAccount ? 'Deleting Account...' : 'Delete Account'}
+          </Text>
+          <Text style={s.menuSub}>Permanently remove your account</Text>
+        </View>
+        {deletingAccount
+          ? <ActivityIndicator size="small" color={C.error} />
+          : <Ionicons name="chevron-forward" size={16} color={C.error + '60'} />
+        }
+      </TouchableOpacity>
+
       {/* ── SIGN OUT MODAL ── */}
       <Modal visible={showSignOutModal} transparent animationType="fade" onRequestClose={() => setShowSignOutModal(false)}>
         <View style={s.overlay}>
@@ -699,6 +748,63 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[s.modalConfirm, signingOut && { opacity: 0.7 }]} onPress={confirmLogout} disabled={signingOut}>
                 {signingOut ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.modalConfirmText}>Sign Out</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showDeleteAccountModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !deletingAccount && setShowDeleteAccountModal(false)}
+      >
+        <View style={s.overlay}>
+          <View style={s.modalCard}>
+            <View style={s.modalIconCircle}>
+              <Ionicons name="warning-outline" size={26} color={C.error} />
+            </View>
+            <Text style={s.modalTitle}>Delete Account?</Text>
+            <Text style={s.modalBody}>
+              This action is permanent. Enter your password to confirm account deletion.
+            </Text>
+
+            <View style={s.passwordWrap}>
+              <Text style={s.passwordLabel}>Password</Text>
+              <TextInput
+                style={s.passwordInput}
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!deletingAccount}
+                placeholder="Enter your password"
+                placeholderTextColor={C.textDim}
+              />
+            </View>
+
+            <View style={s.modalBtns}>
+              <TouchableOpacity
+                style={s.modalCancel}
+                onPress={() => {
+                  setShowDeleteAccountModal(false);
+                  setDeletePassword('');
+                }}
+                disabled={deletingAccount}
+              >
+                <Text style={s.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalConfirm, deletingAccount && { opacity: 0.7 }]}
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount}
+              >
+                {deletingAccount
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.modalConfirmText}>Delete</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>
@@ -795,10 +901,12 @@ const s = StyleSheet.create({
   modalIconCircle:{ width: 60, height: 60, borderRadius: 30, backgroundColor: C.error + '15', borderWidth: 1, borderColor: C.error + '30', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   modalTitle:     { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 8 },
   modalBody:      { fontSize: 14, color: C.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  passwordWrap:   { width: '100%', marginBottom: 16 },
+  passwordLabel:  { color: C.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
+  passwordInput:  { width: '100%', borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, color: C.text, backgroundColor: C.bg },
   modalBtns:      { flexDirection: 'row', gap: 12, width: '100%' },
   modalCancel:    { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: C.border, alignItems: 'center' },
   modalCancelText:{ color: C.textMuted, fontWeight: '700', fontSize: 14 },
   modalConfirm:   { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: C.error, alignItems: 'center' },
   modalConfirmText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
 });
-
