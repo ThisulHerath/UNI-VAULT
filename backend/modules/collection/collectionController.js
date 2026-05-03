@@ -91,8 +91,29 @@ exports.getPublicCollections = async (req, res, next) => {
 // ─── @access Private — only the owner sees their collections
 exports.getMyCollections = async (req, res, next) => {
   try {
-    const collections = await Collection.find({ owner: req.user._id })
-      .sort({ createdAt: -1 });
+    const { search, priority, sort = 'newest' } = req.query;
+    const query = { owner: req.user._id };
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { courseCode: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (['low', 'normal', 'high'].includes(priority)) {
+      query.priority = priority;
+    }
+
+    const sortMap = {
+      newest: { createdAt: -1 },
+      oldest: { createdAt: 1 },
+      targetDate: { targetDate: 1, createdAt: -1 },
+    };
+
+    const collections = await Collection.find(query)
+      .sort(sortMap[sort] || sortMap.newest);
 
     res.status(200).json({ success: true, count: collections.length, data: collections });
   } catch (error) {
