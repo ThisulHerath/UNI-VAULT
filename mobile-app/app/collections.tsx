@@ -11,6 +11,11 @@ type CollectionPriority = 'low' | 'normal' | 'high';
 
 const PRIORITY_OPTIONS: CollectionPriority[] = ['low', 'normal', 'high'];
 
+const formatPriorityLabel = (priority?: string | null) => {
+  if (!priority) return 'Normal';
+  return priority.charAt(0).toUpperCase() + priority.slice(1);
+};
+
 const formatTargetDate = (value?: string | null) => {
   if (!value) return null;
   const date = new Date(value);
