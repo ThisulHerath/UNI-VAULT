@@ -203,6 +203,16 @@ export default function CollectionsScreen() {
               placeholderTextColor={Colors.textMuted}
             />
 
+            <Text style={styles.inputLabel}>Course Code (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. IT2030"
+              value={newCourseCode}
+              onChangeText={setNewCourseCode}
+              autoCapitalize="characters"
+              placeholderTextColor={Colors.textMuted}
+            />
+
             <View style={styles.switchRow}>
               <View>
                 <Text style={styles.switchLabel}>Private Collection</Text>
