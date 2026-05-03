@@ -213,6 +213,16 @@ export default function CollectionsScreen() {
               placeholderTextColor={Colors.textMuted}
             />
 
+            <Text style={styles.inputLabel}>Target Date (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="YYYY-MM-DD"
+              value={newTargetDate}
+              onChangeText={setNewTargetDate}
+              keyboardType="numbers-and-punctuation"
+              placeholderTextColor={Colors.textMuted}
+            />
+
             <View style={styles.switchRow}>
               <View>
                 <Text style={styles.switchLabel}>Private Collection</Text>
