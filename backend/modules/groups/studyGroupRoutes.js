@@ -12,6 +12,8 @@ const {
   joinGroupByCode,
   manageMember,
   leaveGroup,
+  transferOwnership,
+  cancelJoinRequest,
   updateInvitationCode,
   manageGroupNote,
   getGroupMessages,
@@ -36,6 +38,8 @@ router.delete('/:id', protect, deleteGroup);
 router.post('/join-by-code', protect, joinGroupByCode);
 router.post('/:id/join', protect, joinGroup);
 router.post('/:id/leave', protect, leaveGroup);
+router.post('/:id/cancel-request', protect, cancelJoinRequest);
+router.put('/:id/transfer-ownership', protect, transferOwnership);
 
 router.put('/:id/members/:userId', protect, manageMember);
 router.put('/:id/invitation-code', protect, updateInvitationCode);

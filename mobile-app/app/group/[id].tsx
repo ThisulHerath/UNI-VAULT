@@ -522,6 +522,26 @@ export default function GroupDetailScreen() {
     });
   };
 
+  const handleTransferOwnership = async (newOwnerId: string) => {
+    if (!group) return;
+
+    await runAction('transfer-ownership', async () => {
+      const res = await groupService.transferOwnership(group._id, newOwnerId);
+      Toast.show({ type: 'success', text1: 'Transferred', text2: 'Ownership transferred successfully.' });
+      await load();
+    });
+  };
+
+  const handleCancelRequest = async () => {
+    if (!group) return;
+
+    await runAction('cancel-request', async () => {
+      const res = await groupService.cancelJoinRequest(group._id);
+      Toast.show({ type: 'success', text1: 'Cancelled', text2: 'Join request cancelled.' });
+      await load();
+    });
+  };
+
   const handleDelete = async () => {
     if (!group) return;
     await runAction('delete', async () => {
@@ -935,6 +955,15 @@ export default function GroupDetailScreen() {
                               <Text style={styles.chipText}>Demote</Text>
                             </TouchableOpacity>
                           )}
+                          {isOwner && String(memberId) !== String(group.createdBy?._id) && (
+                            <TouchableOpacity
+                              style={[styles.chip, { backgroundColor: Colors.primary + '20' }]}
+                              onPress={() => handleTransferOwnership(memberId)}
+                              disabled={busyAction === 'transfer-ownership'}
+                            >
+                              <Text style={[styles.chipText, { color: Colors.primary }]}>Transfer Owner</Text>
+                            </TouchableOpacity>
+                          )}
                           {String(memberId) !== String(group.createdBy?._id) && (
                             <TouchableOpacity
                               style={[styles.chip, { backgroundColor: Colors.error + '20' }]}
@@ -957,6 +986,16 @@ export default function GroupDetailScreen() {
                   disabled={busyAction === 'leave'}
                 >
                   {busyAction === 'leave' ? <ActivityIndicator color={Colors.error} /> : <Text style={styles.leaveButtonText}>Leave Group</Text>}
+                </TouchableOpacity>
+              )}
+
+              {!isMember && !requesterRoleFromPayload && Array.isArray(group?.joinRequests) && group.joinRequests.some((req: any) => toObjectIdString(req.user) === toObjectIdString(currentUserId) && req.status === 'pending') && (
+                <TouchableOpacity
+                  style={[styles.secondaryButton, { marginTop: Spacing.sm, backgroundColor: Colors.textMuted }]}
+                  onPress={handleCancelRequest}
+                  disabled={busyAction === 'cancel-request'}
+                >
+                  {busyAction === 'cancel-request' ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>Cancel Join Request</Text>}
                 </TouchableOpacity>
               )}
 

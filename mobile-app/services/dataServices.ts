@@ -230,6 +230,14 @@ export const groupService = {
     const res = await api.post(`/groups/${id}/leave`);
     return res.data;
   },
+  cancelJoinRequest: async (id: string) => {
+    const res = await api.post(`/groups/${id}/cancel-request`);
+    return res.data;
+  },
+  transferOwnership: async (id: string, newOwnerId: string) => {
+    const res = await api.put(`/groups/${id}/transfer-ownership`, { newOwnerId });
+    return res.data;
+  },
   manageMember: async (
     id: string,
     userId: string,

@@ -640,6 +640,85 @@ exports.leaveGroup = async (req, res, next) => {
   }
 };
 
+// ─── @route  PUT /api/groups/:id/transfer-ownership ───────────────────────────
+// ─── @access Private (owner only)
+exports.transferOwnership = async (req, res, next) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    if (!isOwner(group, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only the owner can transfer ownership.' });
+    }
+
+    const { newOwnerId } = req.body;
+    if (!newOwnerId) {
+      return res.status(400).json({ success: false, message: 'New owner ID is required.' });
+    }
+
+    // Verify new owner exists and is a member
+    const newOwnerMember = getMember(group, newOwnerId);
+    if (!newOwnerMember) {
+      return res.status(404).json({ success: false, message: 'Target user is not a member of this group.' });
+    }
+
+    if (newOwnerMember.role === 'pending') {
+      return res.status(400).json({ success: false, message: 'Cannot transfer ownership to a pending member.' });
+    }
+
+    // Transfer ownership
+    group.createdBy = newOwnerId;
+    
+    // Ensure new owner has admin role
+    if (newOwnerMember.role !== 'admin') {
+      newOwnerMember.role = 'admin';
+    }
+
+    await group.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Ownership transferred successfully.',
+      data: group,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── @route  POST /api/groups/:id/cancel-request ──────────────────────────────
+// ─── @access Private
+exports.cancelJoinRequest = async (req, res, next) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Study group not found.' });
+    }
+
+    // Find pending request from current user
+    const requestIndex = group.joinRequests.findIndex(
+      (request) => toObjectIdString(request.user) === toObjectIdString(req.user._id) && request.status === 'pending'
+    );
+
+    if (requestIndex === -1) {
+      return res.status(404).json({ success: false, message: 'No pending join request found.' });
+    }
+
+    // Remove the request
+    group.joinRequests.splice(requestIndex, 1);
+    await group.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Join request cancelled successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── @route  PUT /api/groups/:id/invitation-code ─────────────────────────────
 // ─── @access Private (owner/admin)
 exports.updateInvitationCode = async (req, res, next) => {
