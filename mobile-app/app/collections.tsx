@@ -7,6 +7,26 @@ import { collectionService } from '../services/dataServices';
 import { Colors, FontSizes, Spacing, Radius } from '../constants/theme';
 import { SkeletonBlock } from '../components/ui/skeleton-block';
 
+type CollectionPriority = 'low' | 'normal' | 'high';
+
+const PRIORITY_OPTIONS: CollectionPriority[] = ['low', 'normal', 'high'];
+
+const formatTargetDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysLeft = Math.ceil((startOfTarget.getTime() - startOfToday.getTime()) / 86400000);
+
+  if (daysLeft === 0) return 'Due today';
+  if (daysLeft === 1) return 'Due tomorrow';
+  if (daysLeft > 1) return `${daysLeft} days left`;
+  return `${Math.abs(daysLeft)} days overdue`;
+};
+
 function CollectionsSkeletonList() {
   return (
     <View style={{ padding: Spacing.md, paddingBottom: 120 }}>
@@ -34,12 +54,18 @@ export default function CollectionsScreen() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newCourseCode, setNewCourseCode] = useState('');
+  const [newTargetDate, setNewTargetDate] = useState('');
+  const [newPriority, setNewPriority] = useState<CollectionPriority>('normal');
   const [newIsPrivate, setNewIsPrivate] = useState(true);
   const [newTags, setNewTags] = useState('');
 
   const resetForm = () => {
     setNewName('');
     setNewDescription('');
+    setNewCourseCode('');
+    setNewTargetDate('');
+    setNewPriority('normal');
     setNewIsPrivate(true);
     setNewTags('');
   };
@@ -69,6 +95,9 @@ export default function CollectionsScreen() {
       await collectionService.createCollection({
         name: newName.trim(),
         description: newDescription.trim(),
+        courseCode: newCourseCode.trim(),
+        targetDate: newTargetDate.trim() || null,
+        priority: newPriority,
         isPrivate: newIsPrivate,
         tags: tagsArray,
       });
