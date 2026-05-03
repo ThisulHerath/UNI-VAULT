@@ -139,8 +139,8 @@ export const collectionService = {
     const res = await api.get('/collections/public', { params });
     return res.data;
   },
-  getMyCollections: async () => {
-    const res = await api.get('/collections');
+  getMyCollections: async (params?: object) => {
+    const res = await api.get('/collections', { params });
     return res.data;
   },
   getCollectionById: async (id: string) => {
