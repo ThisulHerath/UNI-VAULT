@@ -406,6 +406,7 @@ export default function CollectionDetailScreen() {
   const notes = Array.isArray(collection?.notes) ? collection.notes : [];
   const fulfillments = Array.isArray(collection?.requestFulfillments) ? collection.requestFulfillments : [];
   const totalItems = notes.length + fulfillments.length;
+  const targetDateLabel = formatTargetDate(collection?.targetDate);
 
   const ownerId = collection?.owner?._id || collection?.owner;
   const isOwner = ownerId && user?._id && String(ownerId) === String(user._id);
@@ -437,6 +438,17 @@ export default function CollectionDetailScreen() {
           />
         }
       >
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryBadgeRow}>
+            {collection.courseCode ? <Text style={styles.summaryBadge}>{collection.courseCode}</Text> : null}
+            <Text style={styles.summaryBadge}>{formatPriorityLabel(collection.priority)} Priority</Text>
+            {targetDateLabel ? <Text style={styles.summaryBadge}>Target {targetDateLabel}</Text> : null}
+          </View>
+          {collection.description ? (
+            <Text style={styles.descriptionText}>{collection.description}</Text>
+          ) : null}
+        </View>
+
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionAccent} />
           <Text style={styles.sectionTitle}>Saved Notes</Text>
@@ -491,6 +503,43 @@ export default function CollectionDetailScreen() {
               textAlignVertical="top"
               placeholderTextColor={Colors.textMuted}
             />
+
+            <Text style={styles.inputLabel}>Course Code</Text>
+            <TextInput
+              style={styles.input}
+              value={editCourseCode}
+              onChangeText={setEditCourseCode}
+              autoCapitalize="characters"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={styles.inputLabel}>Target Date</Text>
+            <TextInput
+              style={styles.input}
+              value={editTargetDate}
+              onChangeText={setEditTargetDate}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={styles.inputLabel}>Priority</Text>
+            <View style={styles.priorityRow}>
+              {PRIORITY_OPTIONS.map((priority) => {
+                const selected = editPriority === priority;
+                return (
+                  <TouchableOpacity
+                    key={priority}
+                    style={[styles.priorityOption, selected && styles.priorityOptionActive]}
+                    onPress={() => setEditPriority(priority)}
+                  >
+                    <Text style={[styles.priorityOptionText, selected && styles.priorityOptionTextActive]}>
+                      {formatPriorityLabel(priority)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <View style={styles.switchRow}>
               <View>
@@ -550,6 +599,10 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary },
   subtitle: { marginTop: 2, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: '600' },
   listContent: { padding: Spacing.md, paddingBottom: 120 },
+  summaryCard: { backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: '#BFDBFE', padding: Spacing.md, marginBottom: Spacing.md },
+  summaryBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  summaryBadge: { color: Colors.primary, backgroundColor: '#DBEAFE', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5, fontSize: FontSizes.xs, fontWeight: '800' },
+  descriptionText: { marginTop: Spacing.sm, color: Colors.textMuted, fontSize: FontSizes.sm, lineHeight: 19 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: 8 },
   sectionAccent: { width: 3, height: 16, borderRadius: 2, backgroundColor: Colors.primary },
   sectionTitle: { color: Colors.text, fontSize: FontSizes.md, fontWeight: '800' },
@@ -610,6 +663,11 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.lg },
   inputLabel: { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   input: { backgroundColor: '#F5F9FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: Radius.md, padding: Spacing.sm, fontSize: FontSizes.md, color: Colors.text, marginBottom: Spacing.md },
+  priorityRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  priorityOption: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: Radius.md, borderWidth: 1, borderColor: '#BFDBFE', backgroundColor: '#F5F9FF' },
+  priorityOptionActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  priorityOptionText: { color: Colors.primary, fontWeight: '700', fontSize: FontSizes.sm },
+  priorityOptionTextActive: { color: Colors.surface },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, paddingVertical: 8 },
   switchLabel: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text },
   switchDesc: { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
