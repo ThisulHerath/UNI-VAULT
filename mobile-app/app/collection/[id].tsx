@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Modal,
+  TextInput,
+  Switch,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,16 +18,26 @@ import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collectionService } from '../../services/dataServices';
 import { useAppDialog } from '../../hooks/use-app-dialog';
+import { useAuth } from '../../context/AuthContext';
 import { Colors, FontSizes, Spacing, Radius } from '../../constants/theme';
 
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showDialog, dialogElement } = useAppDialog();
+  const { user } = useAuth();
   const [collection, setCollection] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [removingNoteId, setRemovingNoteId] = useState<string | null>(null);
   const [removingFulfillmentId, setRemovingFulfillmentId] = useState<string | null>(null);
+
+  // Edit Modal State
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editIsPrivate, setEditIsPrivate] = useState(true);
+  const [editTags, setEditTags] = useState('');
 
   const getItemKey = (item: any, fallbackPrefix: string, index: number) => {
     const id = item?._id || item?.id || (typeof item === 'string' ? item : null);
@@ -69,6 +82,61 @@ export default function CollectionDetailScreen() {
   useEffect(() => {
     loadCollection();
   }, [loadCollection]);
+
+  const openEditModal = () => {
+    setEditName(collection?.name || '');
+    setEditDescription(collection?.description || '');
+    setEditIsPrivate(collection?.isPrivate ?? true);
+    setEditTags((collection?.tags || []).join(', '));
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateCollection = async () => {
+    if (!editName.trim()) {
+      Toast.show({ type: 'error', text1: 'Name required' });
+      return;
+    }
+    try {
+      setEditing(true);
+      const tagsArray = editTags.split(',').map((t) => t.trim()).filter((t) => t);
+      await collectionService.updateCollection(id, {
+        name: editName.trim(),
+        description: editDescription.trim(),
+        isPrivate: editIsPrivate,
+        tags: tagsArray,
+      });
+      Toast.show({ type: 'success', text1: 'Collection updated' });
+      setEditModalVisible(false);
+      loadCollection(true);
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Update failed', text2: e.message });
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const confirmDeleteCollection = () => {
+    showDialog(
+      'Delete Collection',
+      `Are you sure you want to delete "${collection?.name}"? This action cannot be undone.`,
+      [
+        { label: 'Cancel', role: 'cancel' },
+        {
+          label: 'Delete',
+          role: 'destructive',
+          onPress: async () => {
+            try {
+              await collectionService.deleteCollection(id);
+              Toast.show({ type: 'success', text1: 'Collection deleted' });
+              router.back();
+            } catch (e: any) {
+              Toast.show({ type: 'error', text1: 'Delete failed', text2: e.message });
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const confirmRemoveNote = (note: any) => {
     if (!id || !note?._id) return;
@@ -314,6 +382,9 @@ export default function CollectionDetailScreen() {
   const fulfillments = Array.isArray(collection?.requestFulfillments) ? collection.requestFulfillments : [];
   const totalItems = notes.length + fulfillments.length;
 
+  const ownerId = collection?.owner?._id || collection?.owner;
+  const isOwner = ownerId && user?._id && String(ownerId) === String(user._id);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -322,8 +393,13 @@ export default function CollectionDetailScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.pageTitle} numberOfLines={1}>{collection.name}</Text>
-          <Text style={styles.subtitle}>{totalItems} saved item{totalItems === 1 ? '' : 's'}</Text>
+          <Text style={styles.subtitle}>{totalItems} saved item{totalItems === 1 ? '' : 's'} {collection.isPrivate ? '' : '• Public'}</Text>
         </View>
+        {isOwner && (
+          <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
+            <Ionicons name="pencil" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -359,7 +435,74 @@ export default function CollectionDetailScreen() {
             </View>
           ))
           : <Text style={styles.emptyText}>No fulfilled attachments saved yet.</Text>}
+
+        {isOwner && (
+          <TouchableOpacity style={styles.deleteCollectionBtn} onPress={confirmDeleteCollection}>
+            <Ionicons name="trash-outline" size={20} color={Colors.error} />
+            <Text style={styles.deleteCollectionBtnText}>Delete Collection</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      <Modal visible={editModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Collection</Text>
+
+            <Text style={styles.inputLabel}>Name *</Text>
+            <TextInput
+              style={styles.input}
+              value={editName}
+              onChangeText={setEditName}
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.input, { height: 80 }]}
+              value={editDescription}
+              onChangeText={setEditDescription}
+              multiline
+              textAlignVertical="top"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <View style={styles.switchRow}>
+              <View>
+                <Text style={styles.switchLabel}>Private Collection</Text>
+                <Text style={styles.switchDesc}>Only you can see this collection</Text>
+              </View>
+              <Switch
+                value={editIsPrivate}
+                onValueChange={setEditIsPrivate}
+                trackColor={{ false: '#DBEAFE', true: Colors.primary }}
+                thumbColor={Colors.surface}
+              />
+            </View>
+
+            {!editIsPrivate && (
+              <>
+                <Text style={styles.inputLabel}>Tags (comma separated)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editTags}
+                  onChangeText={setEditTags}
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setEditModalVisible(false)}>
+                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnSave} onPress={handleUpdateCollection} disabled={editing}>
+                {editing ? <ActivityIndicator size="small" color={Colors.surface} /> : <Text style={styles.modalBtnSaveText}>Save</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {dialogElement}
     </View>
@@ -433,4 +576,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
   },
   backBtnText: { color: Colors.text, fontWeight: '700', fontSize: FontSizes.sm },
+  editBtn: { padding: Spacing.sm, backgroundColor: '#DBEAFE', borderRadius: Radius.sm },
+  deleteCollectionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', padding: Spacing.md, borderRadius: Radius.md, marginTop: Spacing.xl, borderWidth: 1, borderColor: '#FECACA', gap: Spacing.sm },
+  deleteCollectionBtnText: { color: Colors.error, fontSize: FontSizes.md, fontWeight: '700' },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.md },
+  modalContent: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
+  modalTitle: { fontSize: FontSizes.xl, fontWeight: '800', color: Colors.primary, marginBottom: Spacing.lg },
+  inputLabel: { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.text, marginBottom: 6 },
+  input: { backgroundColor: '#F5F9FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: Radius.md, padding: Spacing.sm, fontSize: FontSizes.md, color: Colors.text, marginBottom: Spacing.md },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, paddingVertical: 8 },
+  switchLabel: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.text },
+  switchDesc: { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm, marginTop: Spacing.md },
+  modalBtnCancel: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: Radius.md, backgroundColor: '#F3F4F6' },
+  modalBtnCancelText: { color: Colors.text, fontWeight: '700', fontSize: FontSizes.sm },
+  modalBtnSave: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: Radius.md, backgroundColor: Colors.primary, minWidth: 80, alignItems: 'center' },
+  modalBtnSaveText: { color: Colors.surface, fontWeight: '700', fontSize: FontSizes.sm },
 });

@@ -135,6 +135,10 @@ export const requestService = {
 };
 
 export const collectionService = {
+  getPublicCollections: async (params?: object) => {
+    const res = await api.get('/collections/public', { params });
+    return res.data;
+  },
   getMyCollections: async () => {
     const res = await api.get('/collections');
     return res.data;
@@ -161,6 +165,10 @@ export const collectionService = {
   },
   deleteCollection: async (id: string) => {
     const res = await api.delete(`/collections/${id}`);
+    return res.data;
+  },
+  voteCollection: async (id: string, value: 'upvote' | 'downvote' | 'none') => {
+    const res = await api.put(`/collections/${id}/vote`, { value });
     return res.data;
   },
 };
