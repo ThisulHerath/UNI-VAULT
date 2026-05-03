@@ -825,65 +825,78 @@ export default function GroupDetailScreen() {
                 <Text style={styles.sectionTitle}>Group Overview</Text>
                 <Text style={styles.title}>{group.name}</Text>
                 <Text style={styles.desc}>{group.description || 'No description provided'}</Text>
-                <View style={styles.groupMetaPanel}>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Privacy</Text>
-                    <Text style={styles.metaValue}>{group.privacy}</Text>
+
+                {/* Group Stats */}
+                <View style={styles.statsContainer}>
+                  <View style={styles.statItem}>
+                    <Ionicons name="people-outline" size={20} color={Colors.primary} />
+                    <Text style={styles.statValue}>{group.memberCount || group.members?.length || 0}</Text>
+                    <Text style={styles.statLabel}>Members</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Ionicons name={group.privacy === 'public' ? 'earth-outline' : 'lock-closed-outline'} size={20} color={Colors.primary} />
+                    <Text style={styles.statValue}>{group.privacy}</Text>
+                    <Text style={styles.statLabel}>Privacy</Text>
                   </View>
                   {group.privacy === 'public' && (
-                    <View style={styles.metaRow}>
-                      <Text style={styles.metaLabel}>Join Mode</Text>
-                      <Text style={styles.metaValue}>{group.joinMode === 'request' ? 'Request approval' : 'Open'}</Text>
-                    </View>
+                    <>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Ionicons name={group.joinMode === 'open' ? 'person-add-outline' : 'time-outline'} size={20} color={Colors.primary} />
+                        <Text style={styles.statValue}>{group.joinMode === 'request' ? 'Request' : 'Open'}</Text>
+                        <Text style={styles.statLabel}>Join Mode</Text>
+                      </View>
+                    </>
                   )}
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Members</Text>
-                    <Text style={styles.metaValue}>{group.memberCount || group.members?.length || 0}</Text>
+                </View>
+
+                {/* Admin Info */}
+                <View style={styles.adminInfoContainer}>
+                  <View style={styles.adminInfoRow}>
+                    <Ionicons name="person-circle-outline" size={18} color={Colors.textMuted} />
+                    <Text style={styles.adminInfoLabel}>Admin:</Text>
+                    <Text style={styles.adminInfoValue}>{groupAdminName}</Text>
                   </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Group Admin</Text>
-                    <Text style={styles.metaValue}>{groupAdminName}</Text>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Your Role</Text>
-                    <Text style={styles.metaValue}>{requesterRole}</Text>
+                  <View style={styles.adminInfoRow}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textMuted} />
+                    <Text style={styles.adminInfoLabel}>Your Role:</Text>
+                    <Text style={styles.adminInfoValue}>{requesterRole}</Text>
                   </View>
                 </View>
 
                 {isAdmin && (
                   <TouchableOpacity
-                    style={styles.secondaryButton}
+                    style={styles.editSettingsButton}
                     onPress={openGroupSettings}
                     disabled={busyAction === 'update-settings'}
                   >
                     {busyAction === 'update-settings' ? (
-                      <ActivityIndicator color={Colors.text} />
+                      <ActivityIndicator size="small" color={Colors.primary} />
                     ) : (
-                      <Text style={styles.buttonText}>Edit Group Settings</Text>
+                      <>
+                        <Ionicons name="settings-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.editSettingsText}>Edit Group Settings</Text>
+                      </>
                     )}
                   </TouchableOpacity>
                 )}
 
-                {group.privacy === 'public' && (
-                  <View style={styles.infoBadgeRow}>
-                    <View style={styles.infoBadge}>
-                      <Ionicons name="earth-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.infoBadgeText}>Public Group</Text>
-                    </View>
-                    <View style={styles.infoBadge}>
-                      <Ionicons name="people-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.infoBadgeText}>{group.memberCount || group.members?.length || 0} members</Text>
-                    </View>
-                  </View>
-                )}
                 {isAdmin && group.privacy === 'private' && !!group.invitationCode && (
-                  <Text style={styles.meta}>Invitation Code: {group.invitationCode}</Text>
+                  <View style={styles.invitationCodeContainer}>
+                    <Ionicons name="key-outline" size={16} color={Colors.textMuted} />
+                    <Text style={styles.invitationCodeLabel}>Invitation Code:</Text>
+                    <Text style={styles.invitationCodeValue}>{group.invitationCode}</Text>
+                  </View>
                 )}
               </View>
 
               {!isMember && (
                 <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Join This Group</Text>
+                  <View style={styles.joinHeader}>
+                    <Ionicons name="enter-outline" size={20} color={Colors.primary} />
+                    <Text style={styles.sectionTitle}>Join This Group</Text>
+                  </View>
                   {group.privacy === 'private' && (
                     <TextInput
                       style={styles.input}
@@ -912,25 +925,35 @@ export default function GroupDetailScreen() {
 
               {isAdmin && group.privacy === 'private' && (
                 <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Invitation Code Management</Text>
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    onPress={handleRotateCode}
-                    disabled={busyAction === 'rotate-code'}
-                  >
-                    {busyAction === 'rotate-code' ? (
-                      <ActivityIndicator color={Colors.text} />
-                    ) : (
-                      <Text style={styles.buttonText}>Regenerate Invitation Code</Text>
-                    )}
-                  </TouchableOpacity>
+                  <View style={styles.invitationManagementHeader}>
+                    <Ionicons name="key" size={20} color={Colors.primary} />
+                    <Text style={styles.sectionTitle}>Invitation Code</Text>
+                  </View>
+                  <View style={styles.invitationCodeDisplay}>
+                    <Text style={styles.invitationCodeText}>{group.invitationCode}</Text>
+                    <TouchableOpacity
+                      style={styles.regenerateButton}
+                      onPress={handleRotateCode}
+                      disabled={busyAction === 'rotate-code'}
+                    >
+                      {busyAction === 'rotate-code' ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Ionicons name="refresh" size={16} color={Colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.invitationHint}>Tap refresh to generate a new code</Text>
                 </View>
               )}
 
               {isAdmin && pendingRequests.length > 0 && (
                 <View style={styles.card}>
                   <View style={styles.requestsHeader}>
-                    <Text style={styles.sectionTitle}>Pending Requests</Text>
+                    <View style={styles.requestsHeaderLeft}>
+                      <Ionicons name="time-outline" size={20} color={Colors.primary} />
+                      <Text style={styles.sectionTitle}>Pending Requests</Text>
+                    </View>
                     <View style={styles.requestCountBadge}>
                       <Text style={styles.requestCountText}>{pendingRequests.length}</Text>
                     </View>
@@ -1019,38 +1042,55 @@ export default function GroupDetailScreen() {
                           </View>
                           <Text style={styles.memberName}>{memberName} ({roleLabel})</Text>
                         </View>
-                        <View style={styles.rowActions}>
-                          {isOwner && String(memberId) !== String(group.createdBy?._id) && member.role !== 'admin' && (
-                            <TouchableOpacity
-                              style={styles.chip}
-                              onPress={() => confirmMemberAction(memberId, memberName, 'promote')}
-                            >
-                              <Text style={styles.chipText}>Promote</Text>
-                            </TouchableOpacity>
-                          )}
-                          {isOwner && String(memberId) !== String(group.createdBy?._id) && member.role === 'admin' && (
-                            <TouchableOpacity
-                              style={styles.chip}
-                              onPress={() => confirmMemberAction(memberId, memberName, 'demote')}
-                            >
-                              <Text style={styles.chipText}>Demote</Text>
-                            </TouchableOpacity>
-                          )}
+                        <View style={styles.memberActions}>
+                          {/* Role Management Actions */}
+                          <View style={styles.actionGroup}>
+                            {isOwner && String(memberId) !== String(group.createdBy?._id) && member.role !== 'admin' && (
+                              <TouchableOpacity
+                                style={[styles.actionButton, styles.promoteButton]}
+                                onPress={() => confirmMemberAction(memberId, memberName, 'promote')}
+                              >
+                                <Ionicons name="arrow-up-circle" size={16} color={Colors.success} />
+                                <Text style={[styles.actionButtonText, { color: Colors.success }]}>Promote</Text>
+                              </TouchableOpacity>
+                            )}
+                            {isOwner && String(memberId) !== String(group.createdBy?._id) && member.role === 'admin' && (
+                              <TouchableOpacity
+                                style={[styles.actionButton, styles.demoteButton]}
+                                onPress={() => confirmMemberAction(memberId, memberName, 'demote')}
+                              >
+                                <Ionicons name="arrow-down-circle" size={16} color={Colors.warning} />
+                                <Text style={[styles.actionButtonText, { color: Colors.warning }]}>Demote</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+
+                          {/* Ownership Actions */}
                           {isOwner && String(memberId) !== String(group.createdBy?._id) && (
                             <TouchableOpacity
-                              style={[styles.chip, { backgroundColor: Colors.primary + '20' }]}
+                              style={[styles.actionButton, styles.transferButton]}
                               onPress={() => handleTransferOwnership(memberId)}
                               disabled={busyAction === 'transfer-ownership'}
                             >
-                              <Text style={[styles.chipText, { color: Colors.primary }]}>Transfer Owner</Text>
+                              {busyAction === 'transfer-ownership' ? (
+                                <ActivityIndicator size="small" color={Colors.primary} />
+                              ) : (
+                                <>
+                                  <Ionicons name="key" size={16} color={Colors.primary} />
+                                  <Text style={[styles.actionButtonText, { color: Colors.primary }]}>Transfer Owner</Text>
+                                </>
+                              )}
                             </TouchableOpacity>
                           )}
+
+                          {/* Removal Action */}
                           {String(memberId) !== String(group.createdBy?._id) && (
                             <TouchableOpacity
-                              style={[styles.chip, { backgroundColor: Colors.error + '20' }]}
+                              style={[styles.actionButton, styles.removeButton]}
                               onPress={() => confirmMemberAction(memberId, memberName, 'remove')}
                             >
-                              <Text style={[styles.chipText, { color: Colors.error }]}>Remove</Text>
+                              <Ionicons name="person-remove" size={16} color={Colors.error} />
+                              <Text style={[styles.actionButtonText, { color: Colors.error }]}>Remove</Text>
                             </TouchableOpacity>
                           )}
                         </View>
@@ -1673,59 +1713,156 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   title: { fontSize: FontSizes.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.xs },
-  desc: { fontSize: FontSizes.md, color: Colors.textMuted, marginBottom: Spacing.md },
-  meta: { fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: '600', marginBottom: 4 },
-  sectionTitle: { fontSize: FontSizes.md, color: Colors.text, fontWeight: '700', marginBottom: Spacing.sm },
-  groupMetaPanel: {
+  desc: { fontSize: FontSizes.md, color: Colors.textMuted, marginBottom: Spacing.lg },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValue: {
+    fontSize: FontSizes.lg,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: Spacing.xs,
+  },
+  statLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing.sm,
+  },
+  adminInfoContainer: {
     backgroundColor: Colors.background,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  metaRow: {
+  adminInfoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border + '70',
+    marginBottom: Spacing.xs,
   },
-  metaLabel: {
+  adminInfoLabel: {
     fontSize: FontSizes.sm,
     color: Colors.textMuted,
     fontWeight: '600',
+    marginLeft: Spacing.sm,
   },
-  metaValue: {
+  adminInfoValue: {
     fontSize: FontSizes.sm,
     color: Colors.text,
     fontWeight: '700',
-    textTransform: 'capitalize',
-    maxWidth: '60%',
-    textAlign: 'right',
+    marginLeft: Spacing.xs,
+    flex: 1,
   },
-  infoBadgeRow: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  infoBadge: {
+  editSettingsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary + '18',
-    borderRadius: Radius.full,
+    justifyContent: 'center',
+    backgroundColor: Colors.primary + '10',
     borderWidth: 1,
-    borderColor: Colors.primary + '35',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    borderColor: Colors.primary + '30',
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  infoBadgeText: {
+  editSettingsText: {
     color: Colors.primary,
-    fontSize: FontSizes.xs,
+    fontSize: FontSizes.sm,
     fontWeight: '700',
+    marginLeft: Spacing.xs,
+  },
+  invitationCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary + '08',
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  invitationCodeLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    marginLeft: Spacing.sm,
+  },
+  invitationCodeValue: {
+    fontSize: FontSizes.sm,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    marginLeft: Spacing.xs,
+    flex: 1,
+  },
+  invitationManagementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  invitationCodeDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  invitationCodeText: {
+    fontSize: FontSizes.lg,
+    color: Colors.primary,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    flex: 1,
+  },
+  regenerateButton: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primary + '10',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  invitationHint: {
+    fontSize: FontSizes.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  joinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  requestsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  requestsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sharedNoteRow: {
     flexDirection: 'row',
@@ -1784,10 +1921,48 @@ const styles = StyleSheet.create({
   memberAvatar: { width: '100%', height: '100%' },
   memberAvatarText: { color: Colors.primary, fontWeight: '800', fontSize: FontSizes.sm },
   memberName: { color: Colors.text, fontWeight: '600', marginBottom: 6 },
-  rowActions: { flexDirection: 'row', flexWrap: 'wrap' },
-  chip: { backgroundColor: Colors.primary + '20', borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: 10 },
-  chipText: { color: Colors.primary, fontSize: FontSizes.xs, fontWeight: '700' },
-  requestsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+  memberActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    alignItems: 'center',
+  },
+  actionGroup: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    minHeight: 36,
+  },
+  promoteButton: {
+    borderColor: Colors.success + '40',
+    backgroundColor: Colors.success + '10',
+  },
+  demoteButton: {
+    borderColor: Colors.warning + '40',
+    backgroundColor: Colors.warning + '10',
+  },
+  transferButton: {
+    borderColor: Colors.primary + '40',
+    backgroundColor: Colors.primary + '10',
+  },
+  removeButton: {
+    borderColor: Colors.error + '40',
+    backgroundColor: Colors.error + '10',
+  },
+  actionButtonText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+  },
   requestCountBadge: { backgroundColor: Colors.primary, borderRadius: Radius.full, minWidth: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
   requestCountText: { color: Colors.text, fontWeight: '700', fontSize: FontSizes.sm },
   requestsList: { gap: Spacing.sm },
