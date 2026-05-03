@@ -14,6 +14,22 @@ const collectionSchema = new mongoose.Schema(
       maxlength: [500, 'Description cannot exceed 500 characters'],
       default: null,
     },
+    courseCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: [30, 'Course code cannot exceed 30 characters'],
+      default: null,
+    },
+    targetDate: {
+      type: Date,
+      default: null,
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'normal', 'high'],
+      default: 'normal',
+    },
     // Who owns this collection/bookmark folder?
     owner: {
       type: mongoose.Schema.Types.ObjectId,

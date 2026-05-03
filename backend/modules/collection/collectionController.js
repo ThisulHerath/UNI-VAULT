@@ -26,11 +26,14 @@ const canViewFulfillment = (request, user) => {
 // ─── @access Private
 exports.createCollection = async (req, res, next) => {
   try {
-    const { name, description, isPrivate, tags } = req.body;
+    const { name, description, courseCode, targetDate, priority, isPrivate, tags } = req.body;
 
     const collection = await Collection.create({
       name,
       description,
+      courseCode: courseCode || null,
+      targetDate: targetDate || null,
+      priority: priority || 'normal',
       owner: req.user._id,
       isPrivate: isPrivate !== undefined ? isPrivate : true,
       tags: tags || [],
@@ -168,9 +171,12 @@ exports.updateCollection = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     }
 
-    const { name, description, isPrivate, tags } = req.body;
+    const { name, description, courseCode, targetDate, priority, isPrivate, tags } = req.body;
     if (name !== undefined)      collection.name      = name;
     if (description !== undefined) collection.description = description;
+    if (courseCode !== undefined) collection.courseCode = courseCode || null;
+    if (targetDate !== undefined) collection.targetDate = targetDate || null;
+    if (priority !== undefined) collection.priority = priority;
     if (isPrivate !== undefined) collection.isPrivate = isPrivate;
     if (tags !== undefined)      collection.tags      = tags;
     await collection.save();
