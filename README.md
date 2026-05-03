@@ -68,7 +68,7 @@ User uploads a note:
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack.
 
 ### **Frontend (Mobile App)**
 - **Framework:** React Native (Expo) - v50+
