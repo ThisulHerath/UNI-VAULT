@@ -40,6 +40,17 @@ const normalizeCollectionPayload = (body = {}) => {
   };
 };
 
+const normalizeCollectionUpdate = (body = {}) => {
+  const payload = normalizeCollectionPayload(body);
+  const update = {};
+
+  ['name', 'description', 'courseCode', 'targetDate', 'priority', 'isPrivate', 'tags'].forEach((key) => {
+    if (body[key] !== undefined) update[key] = payload[key];
+  });
+
+  return update;
+};
+
 exports.createCollection = async (req, res, next) => {
   try {
     const payload = normalizeCollectionPayload(req.body);
@@ -202,14 +213,8 @@ exports.updateCollection = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     }
 
-    const { name, description, courseCode, targetDate, priority, isPrivate, tags } = req.body;
-    if (name !== undefined)      collection.name      = name;
-    if (description !== undefined) collection.description = description;
-    if (courseCode !== undefined) collection.courseCode = courseCode || null;
-    if (targetDate !== undefined) collection.targetDate = targetDate || null;
-    if (priority !== undefined) collection.priority = priority;
-    if (isPrivate !== undefined) collection.isPrivate = isPrivate;
-    if (tags !== undefined)      collection.tags      = tags;
+    const update = normalizeCollectionUpdate(req.body);
+    Object.assign(collection, update);
     await collection.save();
 
     res.status(200).json({ success: true, data: collection });
